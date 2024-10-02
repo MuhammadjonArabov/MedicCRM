@@ -1,0 +1,21 @@
+from channels.generic.websocket import AsyncWebsocketConsumer
+import json
+
+
+class TestConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        await self.accept()
+
+    async def disconnect(self, close_code):
+        pass
+
+    async def receive(self, text_data):
+        try:
+            data = json.loads(text_data)
+            print(data)
+        except json.JSONDecodeError:
+            print("Invalid JSON data received")
+
+        await self.send(text_data=json.dumps({
+            'message': 'salom'
+        }))

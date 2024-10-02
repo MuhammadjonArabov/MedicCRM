@@ -1,0 +1,44 @@
+version: '3.7'
+
+services:
+  db:
+    image: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5434:5433"
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    env_file:
+      - .env
+
+  web:
+    depends_on:
+      - db
+    build: .
+    image: htmed-image
+    volumes:
+      - .:/app
+      - ./static:/app/static/
+      - ./media:/app/media/
+    env_file:
+      - .env
+    container_name: htmedcrm-container
+    command: gunicorn --workers=3 --bind 0.0.0.0:8001 core.wsgi:application
+    ports:
+      - "8001:8001"
+    expose:
+      - "8001"
+    restart: always
+
+
+
+volumes:
+  postgres_data:
+  static:
+  media:
+=======
+
+>>>>>>> 9cb31f3a410b9a2fe83fbc628885c82bba3236e4

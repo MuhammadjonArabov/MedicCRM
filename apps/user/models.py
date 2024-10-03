@@ -121,7 +121,7 @@ class Seller(BaseModel):
     status = models.CharField(max_length=15, choices=Status.choices, default=Status.ACTIVE)
     personal_phone = models.CharField(max_length=50, validators=[phone_validator])
     page_permissions = models.ManyToManyField('Page', related_name='page', verbose_name=_('Page Permissions'),
-                                              null=True, blank=True)
+                                               blank=True)
 
     def __str__(self):
         return f"{self.id}-{self.user}-{self.full_name}"

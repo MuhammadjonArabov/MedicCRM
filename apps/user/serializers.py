@@ -10,7 +10,7 @@ class UserSellerCreateSerializers(serializers.ModelSerializer):
     full_name = serializers.CharField(required=False)
     password = serializers.CharField(write_only=True)
     image = serializers.ImageField(required=False)
-    page_permissions = serializers.ListField(child=serializers.IntegerField(), required=False)
+    page_permissions = serializers.PrimaryKeyRelatedField(queryset=Page.objects.all(), many=True, required=False)
 
     class Meta:
         model = Seller
@@ -56,6 +56,14 @@ class UserSellerCreateSerializers(serializers.ModelSerializer):
         if password:
             user.set_password(password)
             user.save()
+
+        page_permissions = validated_data.pop('page_permissions', [])
+
+        seller = self.create_seller(user, validated_data)
+
+        self.set_page_permissions(seller, page_permissions)
+
+        return seller
 
         seller = self.create_seller(user, validated_data)
         self.set_page_permissions(seller, validated_data.get('page_permissions', []))

@@ -69,3 +69,26 @@ class UserSellerCreateSerializers(serializers.ModelSerializer):
         self.set_page_permissions(seller, validated_data.get('page_permissions', []))
 
         return seller
+
+
+class SellerLoginSerializers(serializers.ModelSerializer):
+    phone = serializers.CharField(required=True)
+    password = serializers.CharField(required=True)
+
+    class Meta:
+        model = User
+        fields = ('phone', 'password')
+
+    def validate(self, attrs):
+        phone = attrs.get('phone')
+        password = attrs.get('password')
+
+        user = User.objects.filter(phone=phone).first()
+        if not user:
+            raise serializers.ValidationError({"error": "Siz ro'yxatdan o'tmagansiz"})
+
+        if not user.check_password(password):
+            raise serializers.ValidationError({"error": "Parol xato"})
+
+        attrs['user'] = user
+        return attrs

@@ -6,7 +6,7 @@ from websockets import websocket_urlpatterns
 
 application = ProtocolTypeRouter(
     {
-        "http": django_asgi_app,
+        "http": django_asgi_app(),
         "websocket":
             AllowedHostsOriginValidator(
             AuthMiddleware(

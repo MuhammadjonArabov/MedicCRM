@@ -1,12 +1,9 @@
-from OpenSSL.rand import status
-from django.template.context_processors import request
 from django.utils.datetime_safe import datetime
-from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from apps.user.serializers import UserSellerCreateSerializers
+from apps.user.serializers import UserSellerCreateSerializers, SellerLoginSerializers
 from rest_framework import generics
-from apps.user.models import Seller, User
+from apps.user.models import Seller
 
 
 class SellerCreateAPIView(generics.CreateAPIView):
@@ -19,19 +16,10 @@ class SellerCreateAPIView(generics.CreateAPIView):
 class SellerLoginAPIView(APIView):
 
     def post(self, request, *args, **kwargs):
-        phone = request.data.get('phone')
-        password = request.data.get('password')
+        serializer = SellerLoginSerializers(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        if not phone or not password:
-            return Response({'phone': 'Phone va password maydonlari majbury'}, status=400)
-
-        user = User.objects.filter(phone=phone).first()
-        if not user:
-            raise ValidationError({"error": "Siz ro'yxatdan o'tmagansiz"}, code=400)
-
-        if not user.check_password(password):
-            return Response({'msg': 'Siz kiritgan parol xato iltimos qaytadan kiriting'}, status=400)
-
+        user = serializer.validated_data['user']
         user.last_login = datetime.now()
         user.save()
 
@@ -45,4 +33,4 @@ class SellerLoginAPIView(APIView):
             'msg': "Xush kelibsiz",
         }
         data.update(user.tokens())
-        return Response(data, status=200)
+        return Response(data)

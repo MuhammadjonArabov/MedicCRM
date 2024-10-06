@@ -77,10 +77,6 @@ class AdminUpdateAPIView(generics.UpdateAPIView):
     permission_classes = [IsAdminUser]
     http_method_names = ['patch']
 
-    @method_decorator(csrf_exempt)  # CSRF tekshiruvini o'chirish
-    def dispatch(self, *args, **kwargs):
-        return super().dispatch(*args, **kwargs)
-
     def get_object(self):
         user = self.request.user
 

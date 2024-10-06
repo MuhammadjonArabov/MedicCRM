@@ -2,7 +2,7 @@ from venv import create
 
 from rest_framework import serializers
 import re
-
+from apps.user import models
 from apps.user.models import User, Page, Seller
 
 
@@ -92,3 +92,8 @@ class SellerLoginSerializers(serializers.ModelSerializer):
 
         attrs['user'] = user
         return attrs
+
+class CommentsSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = models.Comment
+        fields = ('id', 'status', 'text', 'audio', 'video', 'customer', 'seller', 'created_at', 'updated_at')

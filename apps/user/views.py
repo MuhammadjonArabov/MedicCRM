@@ -1,14 +1,9 @@
-from OpenSSL.rand import status
-from OpenSSL.rand import status
 from django.core.exceptions import PermissionDenied
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_exempt
 from rest_framework.exceptions import ValidationError
 from django.utils.datetime_safe import datetime
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
 from apps.common.permissions import IsAdminUser
 from apps.user import models
 from apps.user import serializers

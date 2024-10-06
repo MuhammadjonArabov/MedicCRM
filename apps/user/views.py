@@ -1,9 +1,15 @@
 from OpenSSL.rand import status
+from OpenSSL.rand import status
+from django.core.exceptions import PermissionDenied
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework.exceptions import ValidationError
 from django.utils.datetime_safe import datetime
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from apps.common.permissions import IsAdminUser
 from apps.user import models
 from apps.user import serializers
 from rest_framework import generics
@@ -65,3 +71,20 @@ class UserDetailAPIView(generics.RetrieveAPIView):
             return user
         else:
             models.Seller.objects.filter(user=user, status='active').first()
+
+class AdminUpdateAPIView(generics.UpdateAPIView):
+    serializer_class = serializers.AdminUpdateSerializers
+    permission_classes = [IsAdminUser]
+    http_method_names = ['patch']
+
+    @method_decorator(csrf_exempt)  # CSRF tekshiruvini o'chirish
+    def dispatch(self, *args, **kwargs):
+        return super().dispatch(*args, **kwargs)
+
+    def get_object(self):
+        user = self.request.user
+
+        if not user.is_staff:
+            raise PermissionDenied({"error": "Siz admin emassiz!"})
+
+        return user

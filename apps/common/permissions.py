@@ -15,35 +15,6 @@ class IsAdminUser(BasePermission):
         return True
 
 
-class IsSellerUser(BasePermission):
-
-    def has_permission(self, request, view):
-        if not request.user or not request.user.is_authenticated:
-            raise PermissionDenied('Foydalanuvchi authenticatedsiya qilinmagan yoki token mavjud emas')
-
-        if not request.user.sellers.exists():
-            raise PermissionDenied('Foydalanuvchi seller emas')
-
-        return True
-
-
-class IsAdminAndSellerUser(BasePermission):
-
-    def has_permission(self, request, view):
-        if not request.user or not request.user.is_authenticated:
-            raise PermissionDenied('Foydalanuvchi authenticatedsiya qilinmagan yoki token mavjud emas')
-
-        if request.user.is_superuser:
-            return True
-
-        if not request.user.is_superuser:
-            raise PermissionDenied('Foydalanuvhi admin emas')
-
-        if request.user.sellers.exists():
-            raise PermissionDenied("Foydaanuvchi seller emas")
-        return True
-
-
 class IsSellerPage(BasePermission):
 
     def has_permission(self, request, view):

@@ -1,3 +1,4 @@
+from OpenSSL.rand import status
 from rest_framework.exceptions import ValidationError
 from django.utils.datetime_safe import datetime
 from rest_framework.permissions import IsAuthenticated
@@ -48,3 +49,19 @@ class CommentAPIView(generics.ListAPIView):
         if not seller_id or not customer_id:
             raise ValidationError("seller_id va customer_id parametirlari bo'lishi kerak")
         return models.Comment.objects.filter(seller_id=seller_id, customer_id=customer_id)
+
+class UserDetailAPIView(generics.RetrieveAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        user = self.request.user
+        if user.is_superuser:
+            return serializers.AdminDetailSerializers
+        else:
+            return serializers.SellerDetailSerializers
+    def get_object(self):
+        user = self.request.user
+        if user.is_superuser:
+            return user
+        else:
+            models.Seller.objects.filter(user=user, status='active').first()

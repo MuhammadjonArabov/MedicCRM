@@ -1,5 +1,6 @@
 from venv import create
 
+from autobahn.wamp.gen.wamp.proto.Serializer import Serializer
 from rest_framework import serializers
 import re
 from apps.user import models
@@ -93,7 +94,33 @@ class SellerLoginSerializers(serializers.ModelSerializer):
         attrs['user'] = user
         return attrs
 
+
 class CommentsSerializers(serializers.ModelSerializer):
     class Meta:
         model = models.Comment
         fields = ('id', 'status', 'text', 'audio', 'video', 'customer', 'seller', 'created_at', 'updated_at')
+
+
+class SellerCoinsSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = models.SellerCoin
+        fields = ('action', 'coins')
+
+
+class SellerDetailSerializers(serializers.ModelSerializer):
+    coins = SellerCoinsSerializers(many=True)
+
+    class Meta:
+        model = models.Seller
+        fields = ('id', 'phone', 'full_name', 'image', 'coins')
+
+
+class AdminDetailSerializers(serializers.ModelSerializer):
+    full_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = models.User
+        fields = ('id', 'phone', 'full_name')
+
+    def get_full_name(self, obj):
+        return f"{obj.first_name} {obj.last_name}"

@@ -124,3 +124,21 @@ class AdminDetailSerializers(serializers.ModelSerializer):
 
     def get_full_name(self, obj):
         return f"{obj.first_name} {obj.last_name}"
+
+
+class AdminUpdateSerializers(serializers.ModelSerializer):
+    full_name = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = User
+        fields = ('id', 'phone', 'full_name')
+
+    def update(self, instance, validated_data):
+        full_name = validated_data.pop('full_name', None)
+        if full_name:
+            name = full_name.split(' ', 1)
+            instance.first_name = name[0]
+            instance.last_name = name[1] if len(name) > 1 else ''
+        instance.phone = validated_data.get('phone', instance.phone)
+        instance.save()
+        return instance

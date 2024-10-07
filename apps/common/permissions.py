@@ -15,6 +15,18 @@ class IsAdminUser(BasePermission):
         return True
 
 
+class IsSellerUser(BasePermission):
+
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            raise PermissionDenied('Foydalanuvchi autentifikatsiyadan qilinmagan yoki token mavjud emas')
+
+        if not request.user.sellers.exists():
+            raise PermissionDenied('Foydalanuvchi seller emas yoki seller faol emas')
+
+        return True
+
+
 class IsSellerPage(BasePermission):
 
     def has_permission(self, request, view):

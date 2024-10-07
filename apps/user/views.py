@@ -1,13 +1,17 @@
 from django.core.exceptions import PermissionDenied
+from django.db.models import Count, Q
+from django.http import Http404
 from rest_framework.exceptions import ValidationError
 from django.utils.datetime_safe import datetime
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from apps.common.permissions import IsAdminUser
+from apps.common.permissions import IsAdminUser, IsSellerUser
 from apps.user import models
 from apps.user import serializers
 from rest_framework import generics
+
+from apps.user.models import Seller
 
 
 class SellerCreateAPIView(generics.CreateAPIView):
@@ -79,3 +83,18 @@ class AdminUpdateAPIView(generics.UpdateAPIView):
             raise PermissionDenied({"error": "Siz admin emassiz!"})
 
         return user
+
+class SellerDashportAPIView(generics.RetrieveAPIView):
+    serializer_class = serializers.SellerDashportSerializers
+    permission_classes = [IsSellerUser]
+
+    def get_object(self):
+        user = self.request.user.sellers.first()
+        if not user:
+            raise Http404("Seller topilmadi")
+        seller = Seller.objects.filter(id=user.id).annotate(
+            active_customers_counts=Count('customer', filter=Q(customer__statsu='active')),
+            in_progress_customers_counts=Count('customer', filter=Q(customer__status='in_progress')),
+            in_base_customers_counts=Count('customer', filter=Q(customer__status='in_base'))
+        ).first()
+        return seller

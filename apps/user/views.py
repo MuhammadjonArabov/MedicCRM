@@ -83,18 +83,3 @@ class AdminUpdateAPIView(generics.UpdateAPIView):
             raise PermissionDenied({"error": "Siz admin emassiz!"})
 
         return user
-
-class SellerDashportAPIView(generics.RetrieveAPIView):
-    serializer_class = serializers.SellerDashportSerializers
-    permission_classes = [IsSellerUser]
-
-    def get_object(self):
-        user = self.request.user.sellers.first()
-        if not user:
-            raise Http404("Seller topilmadi")
-        seller = Seller.objects.filter(id=user.id).annotate(
-            active_customers_counts=Count('customer', filter=Q(customer__statsu='active')),
-            in_progress_customers_counts=Count('customer', filter=Q(customer__status='in_progress')),
-            in_base_customers_counts=Count('customer', filter=Q(customer__status='in_base'))
-        ).first()
-        return seller

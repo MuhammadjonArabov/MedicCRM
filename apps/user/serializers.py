@@ -142,12 +142,3 @@ class AdminUpdateSerializers(serializers.ModelSerializer):
         instance.phone = validated_data.get('phone', instance.phone)
         instance.save()
         return instance
-
-class SellerDashportSerializers(serializers.ModelSerializer):
-    active_customers_counts = serializers.IntegerField(source='active_customers_count')
-    in_progress_customers_counts = serializers.IntegerField(source='in_progress_customers_counts')
-    in_base_customers_counts = serializers.IntegerField(source='in_base_customers_counts')
-
-    class Meta:
-        models = Seller
-        fields = ('id', 'active_customers_counts', 'in_progress_customers_counts', 'in_base_customers_counts')

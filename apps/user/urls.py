@@ -8,6 +8,6 @@ urlpatterns = [
     path('seller-login/', views.SellerLoginAPIView.as_view(), name='seller-login'),
     path('comments/', views.CommentAPIView.as_view(), name='comments'),
     path('profile/', views.UserDetailAPIView.as_view(), name='user-profile'),
-    # path('admin-update/', views.AdminUpdateAPIView.as_view(), name='admin-update'),
+    path('admin-update/', views.AdminUpdateAPIView.as_view(), name='admin-update'),
 
 ]

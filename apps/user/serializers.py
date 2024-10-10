@@ -4,7 +4,7 @@ from autobahn.wamp.gen.wamp.proto.Serializer import Serializer
 from rest_framework import serializers
 import re
 from apps.user import models
-from apps.user.models import User, Page, Seller
+from apps.user.models import User, Page, Seller, Notifications
 
 
 class UserSellerCreateSerializers(serializers.ModelSerializer):
@@ -142,3 +142,9 @@ class AdminUpdateSerializers(serializers.ModelSerializer):
         instance.phone = validated_data.get('phone', instance.phone)
         instance.save()
         return instance
+
+
+class NotificationSerializers(serializers.ModelSerializer):
+    class Meat:
+        model = Notifications
+        fields = ['id', 'Notifications', 'Notifications', 'Notifications', 'Notifications', 'Notifications']

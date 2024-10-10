@@ -83,7 +83,7 @@ REST_FRAMEWORK = {
 
 INSTALLED_APPS = DJANGO_APPS + CUSTOM_APPS + THIRD_PARTY_APPS
 
-ASGI_APPLICATION = 'core.routing.application'
+ASGI_APPLICATION = 'core.asgi.application'
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",

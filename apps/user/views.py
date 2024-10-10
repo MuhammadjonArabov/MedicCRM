@@ -10,8 +10,8 @@ from apps.common.permissions import IsAdminUser, IsSellerUser
 from apps.user import models
 from apps.user import serializers
 from rest_framework import generics
-
-from apps.user.models import Seller
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 
 
 class SellerCreateAPIView(generics.CreateAPIView):
@@ -43,6 +43,7 @@ class SellerLoginAPIView(APIView):
         data.update(user.tokens())
         return Response(data)
 
+
 class CommentAPIView(generics.ListAPIView):
     serializer_class = serializers.CommentsSerializers
     permission_classes = [IsAuthenticated]
@@ -55,6 +56,7 @@ class CommentAPIView(generics.ListAPIView):
             raise ValidationError("seller_id va customer_id parametirlari bo'lishi kerak")
         return models.Comment.objects.filter(seller_id=seller_id, customer_id=customer_id)
 
+
 class UserDetailAPIView(generics.RetrieveAPIView):
     permission_classes = [IsAuthenticated]
 
@@ -64,12 +66,14 @@ class UserDetailAPIView(generics.RetrieveAPIView):
             return serializers.AdminDetailSerializers
         else:
             return serializers.SellerDetailSerializers
+
     def get_object(self):
         user = self.request.user
         if user.is_superuser:
             return user
         else:
             models.Seller.objects.filter(user=user, status='active').first()
+
 
 class AdminUpdateAPIView(generics.UpdateAPIView):
     serializer_class = serializers.AdminUpdateSerializers
@@ -83,3 +87,14 @@ class AdminUpdateAPIView(generics.UpdateAPIView):
             raise PermissionDenied({"error": "Siz admin emassiz!"})
 
         return user
+
+
+def notify_user(user_id, message):
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        f"user_{user_id}",  # Group name
+        {
+            'type': 'send_notification',
+            'message': message
+        }
+    )

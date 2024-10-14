@@ -48,6 +48,7 @@ class SubLocationListCreateAPIView(generics.ListCreateAPIView):
 
         return queryset
 
+
 class SectorListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = serializers.SectorListCreateSerializers
     permission_classes = [IsAuthenticated]
@@ -60,6 +61,7 @@ class SectorListCreateAPIView(generics.ListCreateAPIView):
 
         if user.is_superuser:
             queryset = models.Sector.objects.all().order_by("-created_at")
+
         else:
             queryset = models.Sector.objects.filter(status=True).order_by("-created_at")
             seller = Seller.objects.filter(user=user, status='active').first()
@@ -67,6 +69,36 @@ class SectorListCreateAPIView(generics.ListCreateAPIView):
             if seller:
                 seller_sector = models.Sector.objects.filter(seller=seller, status=False).order_by("-created_at")
                 return seller_sector | queryset
+
+        queryset = queryset.annotate(
+            customer_order=Case(
+                *[When(name__istartswith=letter, then=Value(i)) for i, letter in enumerate(UZBEK_ALPHABET)],
+                default=Value(len(UZBEK_ALPHABET)),
+                output_field=IntegerField()
+            )
+        ).order_by("customer_order", "-created_at")
+
+        return queryset
+
+
+class LocationListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = serializers.LocationListCreateSerializers
+    permission_classes = [IsAuthenticated]
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['name']
+
+    def get_queryset(self):
+        user = self.request.user
+
+        if user.is_superuser:
+            queryset = models.Location.objects.all().order_by("-created_at")
+
+        else:
+            queryset = models.Location.objects.filter(status=True).order_by("-created_at")
+            seller = Seller.objects.filter(user=user, status='active').first()
+            if seller:
+                seller_location = models.Location.objects.filter(seller=seller, status=False).order_by("-created_at")
+                return seller_location | queryset
 
         queryset = queryset.annotate(
             customer_order=Case(

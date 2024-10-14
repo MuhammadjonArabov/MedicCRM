@@ -18,7 +18,6 @@ class LocationShortSerializers(serializers.ModelSerializer):
 
 
 class SubLocationCreateSerializers(serializers.ModelSerializer):
-
     class Meta:
         model = SubLocation
         fields = ['id', 'name', 'location']
@@ -59,3 +58,29 @@ class SectorListCreateSerializers(serializers.ModelSerializer):
             validated_data['status'] = False
         sector = Sector.objects.create(**validated_data)
         return sector
+
+
+class LocationListCreateSerializers(serializers.ModelSerializer):
+    latitude = serializers.FloatField(required=False)
+    longitude = serializers.FloatField(required=False)
+
+    class Meta:
+        model = Location
+        fields = ['id', 'name', 'latitude', 'longitude']
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+
+        if user.is_superuser:
+            validated_data['seller'] = None
+            validated_data['status'] = True
+
+        else:
+            seller = Seller.objects.filter(user=user, status='active').first()
+            if not seller:
+                raise serializers.ValidationError({"error": "Seller not fount"})
+            validated_data['seller'] = seller
+            validated_data['status'] = True
+
+        location = Location.objects.create(**validated_data)
+        return location

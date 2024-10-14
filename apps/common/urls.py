@@ -2,6 +2,6 @@ from django.urls import path, include
 from . import views
 
 urlpatterns = [
-    #path('customer/', views.CustomerListCreateAPIView.as_view(), name='customer') # get or post
+    path('sub-location/', views.SubLocationListCreateAPIView.as_view(), name='sub-location') # get or post
 
 ]

@@ -121,10 +121,27 @@ class Seller(BaseModel):
     status = models.CharField(max_length=15, choices=Status.choices, default=Status.ACTIVE)
     personal_phone = models.CharField(max_length=50, validators=[phone_validator])
     page_permissions = models.ManyToManyField('Page', related_name='page', verbose_name=_('Page Permissions'),
-                                               blank=True)
+                                              null=True, blank=True)
 
     def __str__(self):
         return f"{self.id}-{self.user}-{self.full_name}"
+
+    def deactivate_other_sellers(self):
+        Seller.objects.filter(user=self.user).exclude(id=self.id).update(status=self.Status.DEACTIVATE)
+
+    def refresh_user_token(self):
+        refresh_token = RefreshToken.for_user(self.user)
+        refresh_token.blacklist()
+
+    def save(self, *args, **kwargs):
+        self.deactivate_other_sellers()
+
+        if self.status in [self.Status.DEACTIVATE, self.Status.ARCHIVED, self.Status.DELETED]:
+            self.phone = self.user.phone
+
+        super().save(*args, **kwargs)
+
+        self.refresh_user_token()
 
 
 class Comment(BaseModel):

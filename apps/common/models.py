@@ -4,7 +4,7 @@ from django.core.validators import RegexValidator
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
-from apps.user.models import BaseModel
+from apps.user.models import BaseModel, SellerCoin
 
 
 class Sector(BaseModel):
@@ -12,6 +12,9 @@ class Sector(BaseModel):
     status = models.BooleanField(default=False, verbose_name=_('Status'))
     seller = models.ForeignKey("user.Seller", on_delete=models.CASCADE, verbose_name=_('Seller'),
                                related_name="sectors", null=True, blank=True)
+    location = models.ForeignKey('Location', on_delete=models.CASCADE, related_name="sector",
+                                 verbose_name=_('Location'),
+                                 null=True, blank=True)
 
     class Meta:
         verbose_name = _("Sector")
@@ -56,6 +59,11 @@ class MedicalSector(BaseModel):
     status = models.BooleanField(default=False, verbose_name=_('Status'))
     inn_number = models.IntegerField(default=0, verbose_name=_('Inner Number'))
     seller = models.ForeignKey("user.Seller", on_delete=models.CASCADE, verbose_name=_('Seller'), null=True, blank=True)
+    location = models.ForeignKey("Location", on_delete=models.CASCADE, related_name='medical_location',
+                                 verbose_name=_('Location'), null=True,
+                                 blank=True)
+    sector = models.ForeignKey("Sector", on_delete=models.CASCADE, related_name='medical_sector',
+                               verbose_name=_('Sector'), null=True, blank=True)
 
     class Meta:
         verbose_name = _("Medical Sector")
@@ -94,7 +102,6 @@ class PaymentMethod(BaseModel):
 
 
 class Customer(BaseModel):
-
     name = models.CharField(max_length=255, verbose_name=_('Name'), null=True, blank=True)
     copy_customer = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='copies',
                                       verbose_name=_('Copy Customer'))
@@ -104,11 +111,13 @@ class Customer(BaseModel):
     location = models.ForeignKey('Location', on_delete=models.CASCADE, related_name='customers',
                                  verbose_name=_('Location'))
     medical = models.ForeignKey('MedicalSector', on_delete=models.CASCADE, related_name='customers',
-                                verbose_name=_('Medical Sector'))
+                                verbose_name=_('Medical Sector'), null=True, blank=True)
     source = models.ForeignKey('Source', on_delete=models.CASCADE, related_name='customers', verbose_name=_('Source'))
     products = models.ManyToManyField('Product', related_name='customers', verbose_name=_('Products'))
-    payment_type = models.ForeignKey(PaymentType, on_delete=models.CASCADE, related_name='customers', null=True, blank=True,)
-    payment_method = models.ForeignKey(PaymentMethod, on_delete=models.CASCADE, related_name='customers', null=True, blank=True,)
+    payment_type = models.ForeignKey(PaymentType, on_delete=models.CASCADE, related_name='customers', null=True,
+                                     blank=True, )
+    payment_method = models.ForeignKey(PaymentMethod, on_delete=models.CASCADE, related_name='customers', null=True,
+                                       blank=True, )
     status = models.CharField(max_length=20, choices=CustomerStatus.choices, default=CustomerStatus.IN_PROGRESS,
                               verbose_name=_('Status'))
     reactivate_data = models.DateTimeField(null=True, blank=True, verbose_name=_('Reactivate Data'))
@@ -194,6 +203,7 @@ class StatusChangeRequest(BaseModel):
     class Types(models.TextChoices):
         CUSTOMER = 'customer', 'Customer'
         COMMENT = 'comment', 'Comment'
+        SOLD = 'sold', 'Sold'
 
     type = models.CharField(max_length=20, choices=Types.choices, default=Types.COMMENT,
                             verbose_name=_('Type'))
@@ -208,40 +218,81 @@ class StatusChangeRequest(BaseModel):
                               verbose_name=_('Status'))
     new_status = models.CharField(max_length=20, choices=CustomerStatus.choices, verbose_name=_('New Status'),
                                   null=True, blank=True, )
-    comment_status = models.BooleanField(default=True)
+    comment_status = models.BooleanField(default=None, null=True, blank=True)
+    sold_status = models.BooleanField(null=True, blank=True, default=None)
+    sale = models.OneToOneField('Sale', on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_('Sale'), related_name='status_change_request')
     text = models.CharField(max_length=255, verbose_name=_('Text'))
     admin_response = models.CharField(max_length=255, verbose_name=_('Admin Response'))
     approved_at = models.DateTimeField(null=True, blank=True, verbose_name=_('Approved At'))
 
     def approve(self):
-        self.status = self.Status.ACCEPTED
-        self.approved_at = datetime.datetime.now()
-        self.save()
+        current_time = datetime.datetime.now()
 
-        self.customer.status = self.new_status
-        self.customer.status_changed_at = timezone.now()
-        self.customer.save()
+        if self.type == self.Types.CUSTOMER:
+            if self.customer and self.new_status:
+                self.status = self.Status.ACCEPTED
+                self.approved_at = current_time
+                self.customer.status = self.new_status
+                self.customer.status_changed_at = timezone.now()
+                self.save()
+                self.customer.save()
 
-        if self.new_status == CustomerStatus.ACTIVE:
-            copied_customers = Customer.objects.filter(phone_number=self.customer.phone_number)
-            for customer in copied_customers:
-                customer.status = CustomerStatus.ARCHIVED
-                customer.status_changed_at = datetime.datetime.now()
-                customer.save()
+                if self.new_status == CustomerStatus.ACTIVE:
+                    copied_customers = Customer.objects.filter(phone_number=self.customer.phone_number).exclude(
+                        id=self.customer.id)
+                    for customer in copied_customers:
+                        customer.status = CustomerStatus.ARCHIVED
+                        customer.status_changed_at = current_time
+                        customer.save()
+
+        elif self.type == self.Types.COMMENT:
+            if self.comment:
+                self.status = self.Status.ACCEPTED
+                self.approved_at = current_time
+                self.comment.status = self.comment_status
+                self.save()
+                self.comment.save()
+
+        elif self.type == self.Types.SOLD:
+            self.status = self.Status.ACCEPTED
+            self.approved_at = current_time
+            self.sold_status = True
+            SellerCoin.objects.create(
+                action='sale',
+                seller=self.seller,
+                coins=50
+            )
+            self.save()
 
     def reject(self, response_text=None):
         self.status = self.Status.REJECTED
         self.admin_response = response_text
 
+        if self.type == self.Types.CUSTOMER:
+            if self.customer:
+                self.customer.status = self.new_status
+
+        elif self.type == self.Types.COMMENT and self.comment:
+            self.comment.status = self.comment_status
+
+        elif self.type == self.Types.SOLD:
+            self.sold_status = False
+
+        self.save()
+
     def __str__(self):
-        return f"Request to change {self.customer.name}'s status to {self.new_status}"
+        return f"Request to change {self.customer.name if self.customer else 'N/A'}'s status to {self.new_status}"
 
     class Meta:
         verbose_name = _("Status Change Request")
         verbose_name_plural = _("Status Change Requests")
 
 
-class RequestStatus(models.TextChoices):
-    PENDING = 'pending', _('Pending')
-    APPROVED = 'approved', _('Approved')
-    REJECTED = 'rejected', _('Rejected')
+class Sale(models.Model):
+    request = models.OneToOneField('StatusChangeRequest', on_delete=models.CASCADE, related_name='sale_request')
+    product = models.ManyToManyField('Product', verbose_name=_('Product'))
+    sub_location = models.ForeignKey('SubLocation', on_delete=models.CASCADE, verbose_name=_('SubLocation'))
+    seller = models.ForeignKey('user.Seller', on_delete=models.CASCADE, verbose_name=_('Seller'))
+    sale_amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name=_('Sale Amount'))
+    approved_at = models.DateTimeField(auto_now_add=True, verbose_name=_('Approved At'))
+

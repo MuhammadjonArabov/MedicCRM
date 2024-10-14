@@ -1,9 +1,11 @@
 from asyncio import open_unix_connection
+from distutils.core import setup_keywords
 from email.policy import default
 
 from OpenSSL.rand import status
 from PIL.ImageFilter import SMOOTH
 from django.db.models import Case, When, Value, IntegerField
+from django.template.context_processors import request
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, filters
 from rest_framework.permissions import IsAuthenticated
@@ -35,6 +37,36 @@ class SubLocationListCreateAPIView(generics.ListCreateAPIView):
                 seller_sub_location = models.SubLocation.objects.filter(seller=seller, status=False).order_by(
                     '-created_at')
                 queryset = seller_sub_location | queryset
+
+        queryset = queryset.annotate(
+            customer_order=Case(
+                *[When(name__istartswith=letter, then=Value(i)) for i, letter in enumerate(UZBEK_ALPHABET)],
+                default=Value(len(UZBEK_ALPHABET)),
+                output_field=IntegerField()
+            )
+        ).order_by("customer_order", "-created_at")
+
+        return queryset
+
+class SectorListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = serializers.SectorListCreateSerializers
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['location']
+    search_fields = ['name']
+
+    def get_queryset(self):
+        user = self.request.user
+
+        if user.is_superuser:
+            queryset = models.Sector.objects.all().order_by("-created_at")
+        else:
+            queryset = models.Sector.objects.filter(status=True).order_by("-created_at")
+            seller = Seller.objects.filter(user=user, status='active').first()
+
+            if seller:
+                seller_sector = models.Sector.objects.filter(seller=seller, status=False).order_by("-created_at")
+                return seller_sector | queryset
 
         queryset = queryset.annotate(
             customer_order=Case(

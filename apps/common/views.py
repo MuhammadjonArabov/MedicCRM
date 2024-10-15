@@ -1,19 +1,10 @@
-from asyncio import open_unix_connection
-from distutils.core import setup_keywords
-from email.policy import default
-
-from OpenSSL.rand import status
-from PIL.ImageFilter import SMOOTH
 from django.db.models import Case, When, Value, IntegerField
-from django.template.context_processors import request
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, filters
 from rest_framework.permissions import IsAuthenticated
 from . import serializers, models
-
-from apps.common.models import Customer
+from .serializers import get_activ_seller
 from .veriabels import UZBEK_ALPHABET
-from ..user.models import Seller
 
 
 class SubLocationListCreateAPIView(generics.ListCreateAPIView):
@@ -31,7 +22,7 @@ class SubLocationListCreateAPIView(generics.ListCreateAPIView):
 
         else:
             queryset = models.SubLocation.objects.filter(status=True).order_by('-created_at')
-            seller = Seller.objects.filter(status='active', user=user).first()
+            seller = get_activ_seller(user)
 
             if seller:
                 seller_sub_location = models.SubLocation.objects.filter(seller=seller, status=False).order_by(
@@ -64,7 +55,7 @@ class SectorListCreateAPIView(generics.ListCreateAPIView):
 
         else:
             queryset = models.Sector.objects.filter(status=True).order_by("-created_at")
-            seller = Seller.objects.filter(user=user, status='active').first()
+            seller = get_activ_seller(user)
 
             if seller:
                 seller_sector = models.Sector.objects.filter(seller=seller, status=False).order_by("-created_at")
@@ -95,10 +86,41 @@ class LocationListCreateAPIView(generics.ListCreateAPIView):
 
         else:
             queryset = models.Location.objects.filter(status=True).order_by("-created_at")
-            seller = Seller.objects.filter(user=user, status='active').first()
+            seller = get_activ_seller(user)
             if seller:
                 seller_location = models.Location.objects.filter(seller=seller, status=False).order_by("-created_at")
                 return seller_location | queryset
+
+        queryset = queryset.annotate(
+            customer_order=Case(
+                *[When(name__istartswith=letter, then=Value(i)) for i, letter in enumerate(UZBEK_ALPHABET)],
+                default=Value(len(UZBEK_ALPHABET)),
+                output_field=IntegerField()
+            )
+        ).order_by("customer_order", "-created_at")
+
+        return queryset
+
+
+class MedicalSectorListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = serializers.MedicalSectorListCreateSerializers
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['location_id', 'sector_id']
+    search_fields = ['name']
+
+    def get_queryset(self):
+        user = self.request.user
+
+        if user.is_superuser:
+            queryset = models.MedicalSector.objects.all().order_by("-created_at")
+
+        else:
+            queryset = models.MedicalSector.objects.filter(status=True).order_by("-created_at")
+            seller = get_activ_seller(user)
+            if seller:
+                seller_medical_sector = models.MedicalSector(seller=seller, status=False).order_by("-created_at")
+                return seller_medical_sector | queryset
 
         queryset = queryset.annotate(
             customer_order=Case(

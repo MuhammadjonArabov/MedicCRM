@@ -1,9 +1,11 @@
+from lib2to3.fixes.fix_input import context
 from os import terminal_size
 
 from OpenSSL.rand import status
 from django.template.defaultfilters import title
 from django.utils.termcolors import RESET
 from rest_framework import serializers
+from rest_framework.exceptions import PermissionDenied
 
 from apps.user.models import Seller, Comment
 from core.settings.base import HOST
@@ -15,6 +17,14 @@ class LocationShortSerializers(serializers.ModelSerializer):
     class Meta:
         model = Location
         fields = ['id', 'name']
+
+
+def get_activ_seller(seller):
+    user = context['request'].user
+    seller = Seller.objects.filter(user=user, status='active').first()
+    if not seller:
+        raise PermissionDenied("Active Seller not fount")
+    return seller
 
 
 class SubLocationCreateSerializers(serializers.ModelSerializer):
@@ -29,9 +39,7 @@ class SubLocationCreateSerializers(serializers.ModelSerializer):
             validated_data['status'] = True
             validated_data['seller'] = None
         else:
-            seller = Seller.objects.filter(user=user, status='active').first()
-            if not seller:
-                raise serializers.ValidationError({"error": "Seller not found"})
+            seller = get_activ_seller(user)
             validated_data['status'] = False
             validated_data['seller'] = seller
 
@@ -51,9 +59,7 @@ class SectorListCreateSerializers(serializers.ModelSerializer):
             validated_data['seller'] = None
             validated_data['status'] = True
         else:
-            seller = Seller.objects.filter(user=user, status='active').first()
-            if not seller:
-                raise serializers.ValidationError({"error": "Seller not fount"})
+            seller = get_activ_seller(user)
             validated_data['seller'] = seller
             validated_data['status'] = False
         sector = Sector.objects.create(**validated_data)
@@ -76,11 +82,30 @@ class LocationListCreateSerializers(serializers.ModelSerializer):
             validated_data['status'] = True
 
         else:
-            seller = Seller.objects.filter(user=user, status='active').first()
-            if not seller:
-                raise serializers.ValidationError({"error": "Seller not fount"})
+            seller = get_activ_seller(user)
             validated_data['seller'] = seller
             validated_data['status'] = True
 
         location = Location.objects.create(**validated_data)
         return location
+
+
+class MedicalSectorListCreateSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = MedicalSector
+        fields = ['id', 'name', 'inn_number', 'location', 'sector']
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+
+        if user.is_superuser:
+            validated_data['seller'] = None
+            validated_data['status'] = True
+
+        else:
+            seller = get_activ_seller(user)
+            validated_data['seller'] = seller
+            validated_data['status'] = False
+
+        medical_sector = MedicalSector.objects.create(**validated_data)
+        return medical_sector

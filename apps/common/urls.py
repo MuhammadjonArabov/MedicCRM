@@ -6,5 +6,6 @@ urlpatterns = [
     path('sector/', views.SectorListCreateAPIView.as_view(), name='sector'), # get or post
     path('location/', views.LocationListCreateAPIView.as_view(), name='location'), # get or post
     path('medical-sector/', views.MedicalSectorListCreateAPIView.as_view(), name='medical-sector'), # get or post
+    path('source/', views.SourceListCreateAPIView.as_view(), name='source'), # get or post
 
 ]

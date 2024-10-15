@@ -1,14 +1,9 @@
 from lib2to3.fixes.fix_input import context
-from os import terminal_size
-
-from OpenSSL.rand import status
-from django.template.defaultfilters import title
-from django.utils.termcolors import RESET
 from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
+from twisted.plugins.twisted_reactors import select
 
 from apps.user.models import Seller, Comment
-from core.settings.base import HOST
 from apps.common.models import Customer, Location, Product, Sector, MedicalSector, Source, PaymentType, PaymentMethod, \
     SubLocation
 
@@ -109,3 +104,31 @@ class MedicalSectorListCreateSerializers(serializers.ModelSerializer):
 
         medical_sector = MedicalSector.objects.create(**validated_data)
         return medical_sector
+
+
+class SourceCreateSerializers(serializers.ModelSerializer):
+    image = serializers.ImageField(required=False)
+
+    class Meta:
+        model = Source
+        fields = ['id', 'name', 'image']
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+
+        if user.is_superuser:
+            validated_data['seller'] = None
+            validated_data['status'] = True  # 'satus' -> 'status'
+
+        else:
+            seller = get_activ_seller(user)
+            validated_data['seller'] = seller
+            validated_data['status'] = False
+
+        source = Source.objects.create(**validated_data)
+        return source
+
+
+
+
+

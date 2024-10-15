@@ -11,7 +11,7 @@ class SubLocationListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = serializers.SubLocationCreateSerializers
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ['location']
+    filterset_fields = ['location_id']
     search_fields = ['name']
 
     def get_queryset(self):
@@ -44,7 +44,7 @@ class SectorListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = serializers.SectorListCreateSerializers
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ['location']
+    filterset_fields = ['location_id']
     search_fields = ['name']
 
     def get_queryset(self):
@@ -131,3 +131,25 @@ class MedicalSectorListCreateAPIView(generics.ListCreateAPIView):
         ).order_by("customer_order", "-created_at")
 
         return queryset
+
+
+class SourceListCreateAPIView(generics.ListCreateAPIView):
+    queryset = models.Source.objects.filter(status=True).order_by("-created_at")
+    serializer_class = serializers.SourceCreateSerializers
+    permission_classes = [IsAuthenticated]
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['name']
+
+    def get_queryset(self):
+        source = models.Source.objects.filter(status=True)
+
+        source = source.annotate(
+            custom_order=Case(
+                *[When(name__istartswith=letter, then=Value(i)) for i, letter in enumerate(UZBEK_ALPHABET)],
+                default=Value(len(UZBEK_ALPHABET)),
+                output_field=IntegerField()
+            )
+        ).order_by('custom_order', '-created_at')
+
+        return source
+

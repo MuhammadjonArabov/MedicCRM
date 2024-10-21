@@ -102,6 +102,13 @@ class LocationListCreateSerializers(serializers.ModelSerializer):
 
         location = Location.objects.create(**validated_data)
 
+        if seller:
+            Notifications.objects.create(
+                title='Location yaratildi',
+                text=f'Locationni {seller} yaratdi',
+                seller=seller,
+                link=f'/location/{location.id}'
+            )
 
         return location
 

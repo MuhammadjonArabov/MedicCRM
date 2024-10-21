@@ -3,7 +3,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
 from twisted.plugins.twisted_reactors import select
 
-from apps.user.models import Seller, Comment
+from apps.user.models import Seller, Comment, Notifications
 from apps.common.models import Customer, Location, Product, Sector, MedicalSector, Source, PaymentType, PaymentMethod, \
     SubLocation
 
@@ -14,11 +14,10 @@ class LocationShortSerializers(serializers.ModelSerializer):
         fields = ['id', 'name']
 
 
-def get_activ_seller(seller):
-    user = context['request'].user
+def get_activ_seller(user):
     seller = Seller.objects.filter(user=user, status='active').first()
     if not seller:
-        raise PermissionDenied("Active Seller not fount")
+        raise PermissionDenied("Active Seller not found")
     return seller
 
 
@@ -29,16 +28,28 @@ class SubLocationCreateSerializers(serializers.ModelSerializer):
 
     def create(self, validated_data):
         user = self.context['request'].user
+        seller = Seller.objects.filter(user=user, status='active').first()
 
         if user.is_superuser:
             validated_data['status'] = True
             validated_data['seller'] = None
         else:
-            seller = get_activ_seller(user)
-            validated_data['status'] = False
+            if not seller:
+                raise serializers.ValidationError({"errors": "Active seller not found!"})
             validated_data['seller'] = seller
+            validated_data['status'] = False
 
         sub_location = SubLocation.objects.create(**validated_data)
+
+        if seller:
+            Notifications.objects.create(
+                title="Yangi sub location yaratildi",
+                text=f"Yangi sub location {seller} yaratdi",
+                seller=seller,
+                is_read=False,
+                link=f"/sub-location/{sub_location.id}"
+            )
+
         return sub_location
 
 
@@ -127,8 +138,3 @@ class SourceCreateSerializers(serializers.ModelSerializer):
 
         source = Source.objects.create(**validated_data)
         return source
-
-
-
-
-

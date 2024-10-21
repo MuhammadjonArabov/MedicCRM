@@ -1,4 +1,6 @@
 from lib2to3.fixes.fix_input import context
+
+from redis.commands.search.reducers import random_sample
 from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
 from twisted.plugins.twisted_reactors import select
@@ -12,13 +14,6 @@ class LocationShortSerializers(serializers.ModelSerializer):
     class Meta:
         model = Location
         fields = ['id', 'name']
-
-
-def get_activ_seller(user):
-    seller = Seller.objects.filter(user=user, status='active').first()
-    if not seller:
-        raise PermissionDenied("Active Seller not found")
-    return seller
 
 
 class SubLocationCreateSerializers(serializers.ModelSerializer):
@@ -60,15 +55,26 @@ class SectorListCreateSerializers(serializers.ModelSerializer):
 
     def create(self, validated_data):
         user = self.context['request'].user
+        seller = Seller.objects.filter(user=user, status='active').first()
 
         if user.is_superuser:
             validated_data['seller'] = None
             validated_data['status'] = True
         else:
-            seller = get_activ_seller(user)
+            if not seller:
+                raise serializers.ValidationError("Active seller topilmadi!")
             validated_data['seller'] = seller
             validated_data['status'] = False
         sector = Sector.objects.create(**validated_data)
+
+        if seller:
+            Notifications.objects.create(
+                title='Sector yaratildi',
+                text=f'Sectorni {seller} yaratdi',
+                seller=seller,
+                is_read=False,
+                link=f'/sector/{sector.id}'
+            )
         return sector
 
 
@@ -82,17 +88,21 @@ class LocationListCreateSerializers(serializers.ModelSerializer):
 
     def create(self, validated_data):
         user = self.context['request'].user
+        seller = Seller.objects.filter(user=user, status='active').first()
 
         if user.is_superuser:
             validated_data['seller'] = None
             validated_data['status'] = True
 
         else:
-            seller = get_activ_seller(user)
+            if not seller:
+                raise serializers.ValidationError("Active seller topilmadi")
             validated_data['seller'] = seller
             validated_data['status'] = True
 
         location = Location.objects.create(**validated_data)
+
+
         return location
 
 
@@ -103,13 +113,13 @@ class MedicalSectorListCreateSerializers(serializers.ModelSerializer):
 
     def create(self, validated_data):
         user = self.context['request'].user
+        seller = Seller.objects.filter(user=user, status='active').first()
 
         if user.is_superuser:
             validated_data['seller'] = None
             validated_data['status'] = True
 
         else:
-            seller = get_activ_seller(user)
             validated_data['seller'] = seller
             validated_data['status'] = False
 
@@ -126,13 +136,13 @@ class SourceCreateSerializers(serializers.ModelSerializer):
 
     def create(self, validated_data):
         user = self.context['request'].user
+        seller = Seller.objects.filter(user=user, status='active').first()
 
         if user.is_superuser:
             validated_data['seller'] = None
             validated_data['status'] = True  # 'satus' -> 'status'
 
         else:
-            seller = get_activ_seller(user)
             validated_data['seller'] = seller
             validated_data['status'] = False
 

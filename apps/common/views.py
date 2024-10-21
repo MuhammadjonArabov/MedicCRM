@@ -3,7 +3,6 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, filters
 from rest_framework.permissions import IsAuthenticated
 from . import serializers, models
-from .serializers import get_activ_seller
 from .veriabels import UZBEK_ALPHABET
 
 
@@ -22,7 +21,7 @@ class SubLocationListCreateAPIView(generics.ListCreateAPIView):
 
         else:
             queryset = models.SubLocation.objects.filter(status=True).order_by('-created_at')
-            seller = get_activ_seller(user)
+            seller = models.Seller.objects.filter(user=user, status='active').first()
 
             if seller:
                 seller_sub_location = models.SubLocation.objects.filter(seller=seller, status=False).order_by(
@@ -55,7 +54,7 @@ class SectorListCreateAPIView(generics.ListCreateAPIView):
 
         else:
             queryset = models.Sector.objects.filter(status=True).order_by("-created_at")
-            seller = get_activ_seller(user)
+            seller = models.Seller.objects.filter(user=user, status='active').first()
 
             if seller:
                 seller_sector = models.Sector.objects.filter(seller=seller, status=False).order_by("-created_at")
@@ -86,7 +85,7 @@ class LocationListCreateAPIView(generics.ListCreateAPIView):
 
         else:
             queryset = models.Location.objects.filter(status=True).order_by("-created_at")
-            seller = get_activ_seller(user)
+            seller = models.Seller.objects.filter(user=user, status='active').first()
             if seller:
                 seller_location = models.Location.objects.filter(seller=seller, status=False).order_by("-created_at")
                 return seller_location | queryset
@@ -117,7 +116,7 @@ class MedicalSectorListCreateAPIView(generics.ListCreateAPIView):
 
         else:
             queryset = models.MedicalSector.objects.filter(status=True).order_by("-created_at")
-            seller = get_activ_seller(user)
+            seller = models.Seller.objects.filter(user=user, status='active').first()
             if seller:
                 seller_medical_sector = models.MedicalSector(seller=seller, status=False).order_by("-created_at")
                 return seller_medical_sector | queryset

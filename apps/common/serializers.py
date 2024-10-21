@@ -127,10 +127,20 @@ class MedicalSectorListCreateSerializers(serializers.ModelSerializer):
             validated_data['status'] = True
 
         else:
+            if not seller:
+                raise serializers.ValidationError("Active seller topilmadi")
             validated_data['seller'] = seller
             validated_data['status'] = False
 
         medical_sector = MedicalSector.objects.create(**validated_data)
+
+        if seller:
+            Notifications.objects.create(
+                title='Medical sector yratildi',
+                text=f'Medical sectorni {seller} yaratdi',
+                seller=seller,
+                link=f'/medical-sector/{medical_sector.id}'
+            )
         return medical_sector
 
 

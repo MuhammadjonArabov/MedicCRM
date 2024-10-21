@@ -165,3 +165,9 @@ class SourceCreateSerializers(serializers.ModelSerializer):
 
         source = Source.objects.create(**validated_data)
         return source
+
+
+class LocationNameListSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = Location
+        fields = ['id', 'name']

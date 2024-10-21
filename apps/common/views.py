@@ -152,3 +152,8 @@ class SourceListCreateAPIView(generics.ListCreateAPIView):
 
         return source
 
+
+class LocationNameListApiView(generics.ListAPIView):
+    queryset = models.Location.objects.all()
+    serializer_class = serializers.LocationNameListSerializers
+    permission_classes = [IsAuthenticated]

@@ -4,6 +4,7 @@ from rest_framework import generics, filters
 from rest_framework.permissions import IsAuthenticated
 from . import serializers, models
 from .veriabels import UZBEK_ALPHABET
+from apps.user.models import User
 
 
 class SubLocationListCreateAPIView(generics.ListCreateAPIView):
@@ -17,26 +18,17 @@ class SubLocationListCreateAPIView(generics.ListCreateAPIView):
         user = self.request.user
 
         if user.is_superuser:
-            queryset = models.SubLocation.objects.all().order_by('-created_at')
+            return models.SubLocation.objects.all().order_by('-created_at')
 
-        else:
-            queryset = models.SubLocation.objects.filter(status=True).order_by('-created_at')
-            seller = models.Seller.objects.filter(user=user, status='active').first()
+        sub_location = models.SubLocation.objects.filter(status=True).order_by('-created_at')
+        seller = User.objects.get_active_seller(user)
 
-            if seller:
-                seller_sub_location = models.SubLocation.objects.filter(seller=seller, status=False).order_by(
-                    '-created_at')
-                queryset = seller_sub_location | queryset
+        if seller:
+            seller_sub_location = models.SubLocation.objects.filter(seller=seller, status=False).order_by(
+                '-created_at')
+            return sub_location | seller_sub_location
 
-        queryset = queryset.annotate(
-            customer_order=Case(
-                *[When(name__istartswith=letter, then=Value(i)) for i, letter in enumerate(UZBEK_ALPHABET)],
-                default=Value(len(UZBEK_ALPHABET)),
-                output_field=IntegerField()
-            )
-        ).order_by("customer_order", "-created_at")
-
-        return queryset
+        return sub_location
 
 
 class SectorListCreateAPIView(generics.ListCreateAPIView):
@@ -50,25 +42,17 @@ class SectorListCreateAPIView(generics.ListCreateAPIView):
         user = self.request.user
 
         if user.is_superuser:
-            queryset = models.Sector.objects.all().order_by("-created_at")
+            return models.Sector.objects.all().order_by('-created_at')
 
-        else:
-            queryset = models.Sector.objects.filter(status=True).order_by("-created_at")
-            seller = models.Seller.objects.filter(user=user, status='active').first()
+        sector = models.Sector.objects.filter(status=True).order_by('-created_at')
+        seller = User.objects.get_active_seller(user)
 
-            if seller:
-                seller_sector = models.Sector.objects.filter(seller=seller, status=False).order_by("-created_at")
-                return seller_sector | queryset
+        if seller:
+            seller_sector= models.Sector.objects.filter(seller=seller, status=False).order_by(
+                '-created_at')
+            return sector | seller_sector
 
-        queryset = queryset.annotate(
-            customer_order=Case(
-                *[When(name__istartswith=letter, then=Value(i)) for i, letter in enumerate(UZBEK_ALPHABET)],
-                default=Value(len(UZBEK_ALPHABET)),
-                output_field=IntegerField()
-            )
-        ).order_by("customer_order", "-created_at")
-
-        return queryset
+        return sector
 
 
 class LocationListCreateAPIView(generics.ListCreateAPIView):
@@ -81,24 +65,17 @@ class LocationListCreateAPIView(generics.ListCreateAPIView):
         user = self.request.user
 
         if user.is_superuser:
-            queryset = models.Location.objects.all().order_by("-created_at")
+            return models.Location.objects.all().order_by('-created_at')
 
-        else:
-            queryset = models.Location.objects.filter(status=True).order_by("-created_at")
-            seller = models.Seller.objects.filter(user=user, status='active').first()
-            if seller:
-                seller_location = models.Location.objects.filter(seller=seller, status=False).order_by("-created_at")
-                return seller_location | queryset
+        location = models.Location.objects.filter(status=True).order_by('-created_at')
+        seller = User.objects.get_active_seller(user)
 
-        queryset = queryset.annotate(
-            customer_order=Case(
-                *[When(name__istartswith=letter, then=Value(i)) for i, letter in enumerate(UZBEK_ALPHABET)],
-                default=Value(len(UZBEK_ALPHABET)),
-                output_field=IntegerField()
-            )
-        ).order_by("customer_order", "-created_at")
+        if seller:
+            seller_location = models.Location.objects.filter(seller=seller, status=False).order_by(
+                '-created_at')
+            return location | seller_location
 
-        return queryset
+        return location
 
 
 class MedicalSectorListCreateAPIView(generics.ListCreateAPIView):
@@ -112,24 +89,17 @@ class MedicalSectorListCreateAPIView(generics.ListCreateAPIView):
         user = self.request.user
 
         if user.is_superuser:
-            queryset = models.MedicalSector.objects.all().order_by("-created_at")
+            return models.MedicalSector.objects.all().order_by('-created_at')
 
-        else:
-            queryset = models.MedicalSector.objects.filter(status=True).order_by("-created_at")
-            seller = models.Seller.objects.filter(user=user, status='active').first()
-            if seller:
-                seller_medical_sector = models.MedicalSector(seller=seller, status=False).order_by("-created_at")
-                return seller_medical_sector | queryset
+        medical_sector = models.MedicalSector.objects.filter(status=True).order_by('-created_at')
+        seller = User.objects.get_active_seller(user)
 
-        queryset = queryset.annotate(
-            customer_order=Case(
-                *[When(name__istartswith=letter, then=Value(i)) for i, letter in enumerate(UZBEK_ALPHABET)],
-                default=Value(len(UZBEK_ALPHABET)),
-                output_field=IntegerField()
-            )
-        ).order_by("customer_order", "-created_at")
+        if seller:
+            seller_medical_sector = models.MedicalSector.objects.filter(seller=seller, status=False).order_by(
+                '-created_at')
+            return medical_sector | seller_medical_sector
 
-        return queryset
+        return medical_sector
 
 
 class SourceListCreateAPIView(generics.ListCreateAPIView):
@@ -140,16 +110,7 @@ class SourceListCreateAPIView(generics.ListCreateAPIView):
     search_fields = ['name']
 
     def get_queryset(self):
-        source = models.Source.objects.filter(status=True)
-
-        source = source.annotate(
-            custom_order=Case(
-                *[When(name__istartswith=letter, then=Value(i)) for i, letter in enumerate(UZBEK_ALPHABET)],
-                default=Value(len(UZBEK_ALPHABET)),
-                output_field=IntegerField()
-            )
-        ).order_by('custom_order', '-created_at')
-
+        source = models.Source.objects.filter(status=True).order_by("-created_at")
         return source
 
 

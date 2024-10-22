@@ -54,6 +54,9 @@ class PhoneManager(BaseUserManager):
 
         return self._create_user(phone, email, password, **extra_fields)
 
+    def get_active_seller(self, user):
+        return Seller.objects.filter(user=user, status='active').first()
+
 
 class User(AbstractUser, BaseModel):
     phone = models.CharField(unique=True, validators=[phone_validator], max_length=50, blank=True)

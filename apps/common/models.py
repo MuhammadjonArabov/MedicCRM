@@ -3,11 +3,27 @@ import datetime
 from django.core.validators import RegexValidator
 from django.db import models
 from django.utils import timezone
+from apps.user.models import User, Notifications
 from django.utils.translation import gettext_lazy as _
 from apps.user.models import BaseModel, SellerCoin
+from apps.user.serializers import UserSellerCreateSerializers
 
 
-class Sector(BaseModel):
+class NotificationMixin:
+    def save(self, *args, **kwargs):
+        is_creating = self.pk is None
+        super().save(*args, **kwargs)
+        if is_creating and self.seller:
+            Notifications.objects.create(
+                title=f"Yangi {self._meta.verbose_name} yaratildi",
+                text=f"Yangi {self._meta.verbose_name} {self.seller} tomonidan yaratildi",
+                seller=self.seller,
+                is_read=False,
+                link=f"/link/{self.id}"
+            )
+
+
+class Sector(NotificationMixin, BaseModel):
     name = models.CharField(max_length=255, verbose_name=_('Name'))
     status = models.BooleanField(default=False, verbose_name=_('Status'))
     seller = models.ForeignKey("user.Seller", on_delete=models.CASCADE, verbose_name=_('Seller'),
@@ -24,7 +40,7 @@ class Sector(BaseModel):
         return self.name
 
 
-class SubLocation(BaseModel):
+class SubLocation(NotificationMixin, BaseModel):
     name = models.CharField(max_length=255, verbose_name=_('Name'))
     status = models.BooleanField(default=False, verbose_name=_('Status'))
     location = models.ForeignKey('Location', on_delete=models.CASCADE, related_name='sub_locations',
@@ -39,7 +55,7 @@ class SubLocation(BaseModel):
         return self.name
 
 
-class Location(BaseModel):
+class Location(NotificationMixin, BaseModel):
     name = models.CharField(max_length=255, verbose_name=_('Name'))
     status = models.BooleanField(default=False, verbose_name=_('Status'))
     latitude = models.FloatField(default=0, verbose_name=_('Latitude'))
@@ -54,7 +70,7 @@ class Location(BaseModel):
         return self.name
 
 
-class MedicalSector(BaseModel):
+class MedicalSector(NotificationMixin, BaseModel):
     name = models.CharField(max_length=255, verbose_name=_('Name'))
     status = models.BooleanField(default=False, verbose_name=_('Status'))
     inn_number = models.IntegerField(default=0, verbose_name=_('Inner Number'))
@@ -220,7 +236,8 @@ class StatusChangeRequest(BaseModel):
                                   null=True, blank=True, )
     comment_status = models.BooleanField(default=None, null=True, blank=True)
     sold_status = models.BooleanField(null=True, blank=True, default=None)
-    sale = models.OneToOneField('Sale', on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_('Sale'), related_name='status_change_request')
+    sale = models.OneToOneField('Sale', on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_('Sale'),
+                                related_name='status_change_request')
     text = models.CharField(max_length=255, verbose_name=_('Text'))
     admin_response = models.CharField(max_length=255, verbose_name=_('Admin Response'))
     approved_at = models.DateTimeField(null=True, blank=True, verbose_name=_('Approved At'))
@@ -295,4 +312,3 @@ class Sale(models.Model):
     seller = models.ForeignKey('user.Seller', on_delete=models.CASCADE, verbose_name=_('Seller'))
     sale_amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name=_('Sale Amount'))
     approved_at = models.DateTimeField(auto_now_add=True, verbose_name=_('Approved At'))
-

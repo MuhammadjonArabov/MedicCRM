@@ -1,11 +1,14 @@
 from lib2to3.fixes.fix_input import context
+from smtpd import usage
 
+from django.core.validators import validate_comma_separated_integer_list
 from redis.commands.search.reducers import random_sample
 from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
+from twisted.conch.insults.insults import modes
 from twisted.plugins.twisted_reactors import select
 
-from apps.user.models import Seller, Comment, Notifications
+from apps.user.models import Seller, Comment, Notifications, SellerVisit
 from apps.common.models import Customer, Location, Product, Sector, MedicalSector, Source, PaymentType, PaymentMethod, \
     SubLocation
 
@@ -171,3 +174,11 @@ class LocationNameListSerializers(serializers.ModelSerializer):
     class Meta:
         model = Location
         fields = ['id', 'name']
+
+
+def active_seller():
+    request = context['request'].user
+    seller = request.user.sellers.filter(status='active').first()
+    return seller
+
+

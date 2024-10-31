@@ -1,9 +1,7 @@
-from django.db.models import Case, When, Value, IntegerField
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, filters
 from rest_framework.permissions import IsAuthenticated
 from . import serializers, models
-from .veriabels import UZBEK_ALPHABET
 from apps.user.models import User
 
 
@@ -48,7 +46,7 @@ class SectorListCreateAPIView(generics.ListCreateAPIView):
         seller = User.objects.get_active_seller(user)
 
         if seller:
-            seller_sector= models.Sector.objects.filter(seller=seller, status=False).order_by(
+            seller_sector = models.Sector.objects.filter(seller=seller, status=False).order_by(
                 '-created_at')
             return sector | seller_sector
 
@@ -118,3 +116,4 @@ class LocationNameListApiView(generics.ListAPIView):
     queryset = models.Location.objects.all()
     serializer_class = serializers.LocationNameListSerializers
     permission_classes = [IsAuthenticated]
+

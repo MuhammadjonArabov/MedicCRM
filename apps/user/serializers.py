@@ -144,7 +144,4 @@ class AdminUpdateSerializers(serializers.ModelSerializer):
         return instance
 
 
-class NotificationSerializers(serializers.ModelSerializer):
-    class Meat:
-        model = Notifications
-        fields = ['id', 'Notifications', 'Notifications', 'Notifications', 'Notifications', 'Notifications']
+

@@ -54,9 +54,6 @@ class PhoneManager(BaseUserManager):
 
         return self._create_user(phone, email, password, **extra_fields)
 
-    def get_active_seller(self, user):
-        return Seller.objects.filter(user=user, status='active').first()
-
 
 class User(AbstractUser, BaseModel):
     phone = models.CharField(unique=True, validators=[phone_validator], max_length=50, blank=True)
@@ -96,6 +93,10 @@ class User(AbstractUser, BaseModel):
     def __str__(self) -> str:
         return f"{str(self.id)}-{self.phone}"
 
+    @property
+    def active_seller(self):
+        return self.sellers.filter(status='active').first()
+
 
 class Seller(BaseModel):
     class LocationType(models.TextChoices):
@@ -116,6 +117,7 @@ class Seller(BaseModel):
     image = models.ImageField(upload_to='seller_images/', null=True, blank=True, verbose_name=_('Image'))
     registered_address = models.FileField(upload_to='registered_address/', null=True, blank=True,
                                           verbose_name=_('Registered Address'))
+    add_customer_count = models.IntegerField(default=0, verbose_name=_('Add customer count'))
     pinfl = models.FileField(upload_to='pinfl/', null=True, blank=True, verbose_name=_('PINFL'))
     passport_img = models.ImageField(upload_to='passport_images/', null=True, blank=True,
                                      verbose_name=_('Passport Image'))
@@ -123,8 +125,7 @@ class Seller(BaseModel):
                                      choices=LocationType.choices, default=LocationType.OFFLINE)
     status = models.CharField(max_length=15, choices=Status.choices, default=Status.ACTIVE)
     personal_phone = models.CharField(max_length=50, validators=[phone_validator])
-    page_permissions = models.ManyToManyField('Page', related_name='page', verbose_name=_('Page Permissions'),
-                                              null=True, blank=True)
+    page_permissions = models.ManyToManyField('Page', related_name='page', verbose_name=_('Page Permissions'), )
 
     def __str__(self):
         return f"{self.id}-{self.user}-{self.full_name}"
@@ -149,13 +150,15 @@ class Seller(BaseModel):
 
 class Comment(BaseModel):
     status = models.BooleanField(default=True)
-    text = RichTextField()
+    text = RichTextField(null=True, blank=True, verbose_name=_('Text'))
     audio = models.FileField(upload_to='comments_audio/', null=True, blank=True, verbose_name=_('Audio'))
-    video = models.FileField(upload_to='comments_video/', null=True, blank=True, verbose_name=_('Video'))
+    file = models.FileField(upload_to='comments_files/', null=True, blank=True, verbose_name=_('File'))
     customer = models.ForeignKey('common.Customer', on_delete=models.CASCADE, related_name='customer_comments',
                                  verbose_name=_('Customer'))
     seller = models.ForeignKey('Seller', on_delete=models.CASCADE, related_name='seller_comments',
-                               verbose_name=_('Seller'))
+                               verbose_name=_('Seller'), null=True, blank=True)
+    user = models.ForeignKey('User', on_delete=models.CASCADE, related_name='user_comments', verbose_name=_('User'),
+                             null=True, blank=True)
 
     def __str__(self):
         return f"{str(self.id)}-{self.seller}-{self.customer}"
@@ -195,12 +198,12 @@ class SellerButtonClick(BaseModel):
 
 
 class SellerVisit(BaseModel):
-    user = models.ForeignKey('Seller', on_delete=models.CASCADE, related_name='user_visits', verbose_name=_('User'))
+    seller = models.ForeignKey('Seller', on_delete=models.CASCADE, related_name='user_visits', verbose_name=_('User'))
     last_visit = models.DateTimeField(null=True, blank=True, verbose_name=_('Last Visit'))
     visit_count = models.FloatField(default=0, verbose_name=_('Visit Count'))
 
     def __str__(self):
-        return f"{self.user} - {self.last_visit}"
+        return f"{self.seller} - {self.last_visit}"
 
 
 class Calendar(BaseModel):
@@ -218,10 +221,11 @@ class Calendar(BaseModel):
 
 class SellerCoin(BaseModel):
     class ActionType(models.TextChoices):
-        ADD_CUSTOMER = 'add_customer', 'Add customer'
-        SALE = 'sale', 'Sale'
+        ADD_CUSTOMER = 'add_customer', "Xaridor qo'shish"
+        SALE = 'sale', "Sotuv"
+        DO_ACTIVATION = 'do_activation', 'Foallashtirgan'
 
-    action = models.CharField(max_length=12,
+    action = models.CharField(max_length=50,
                               choices=ActionType.choices, default=ActionType.ADD_CUSTOMER)
     seller = models.ForeignKey('Seller', on_delete=models.CASCADE, related_name='seller_coins',
                                verbose_name=_('Seller'))
@@ -232,22 +236,14 @@ class SellerCoin(BaseModel):
 
 
 class Sms(BaseModel):
-    title = models.CharField(max_length=255, verbose_name=_('Title'))
+    title = models.CharField(max_length=255, verbose_name=_('Title'), null=True, blank=True)
     message = models.TextField(verbose_name=_('Message'))
-    sent_at = models.DateTimeField(auto_now_add=True, verbose_name=_('Sent At'))
     sellers = models.ManyToManyField('Seller', related_name='sms_messages', verbose_name=_('Sellers'))
+    sending_at = models.DateTimeField(null=True, blank=True, verbose_name=_('Sending at'))
+    customers = models.ManyToManyField('common.Customer', related_name='sms_customers', verbose_name=_('Customers'))
 
     def __str__(self):
         return f"{self.title} - {self.message}"
-
-
-class ConfirmSale(BaseModel):
-    customer = models.ForeignKey('User', on_delete=models.CASCADE, related_name='confirmed_sales',
-                                 verbose_name=_('Customer'))
-    seller_percentage = models.FloatField(verbose_name=_('Seller Percentage'))
-
-    def __str__(self):
-        return f"{self.customer} - {self.seller_percentage}"
 
 
 class Page(BaseModel):
@@ -260,6 +256,7 @@ class Page(BaseModel):
 class SellerCustomerView(BaseModel):
     seller = models.ForeignKey('Seller', on_delete=models.CASCADE, related_name='customer_views', )
     customer = models.ForeignKey('common.Customer', on_delete=models.CASCADE, related_name='seller_customers', )
+    count = models.BigIntegerField(default=0, verbose_name=_('Count'))
     viewed_at = models.DateTimeField(default=datetime.now, verbose_name=_('View At'))
 
     def __str__(self):

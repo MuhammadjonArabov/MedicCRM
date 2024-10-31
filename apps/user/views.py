@@ -1,17 +1,13 @@
 from django.core.exceptions import PermissionDenied
-from django.db.models import Count, Q
-from django.http import Http404
 from rest_framework.exceptions import ValidationError
 from django.utils.datetime_safe import datetime
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from apps.common.permissions import IsAdminUser, IsSellerUser
+from apps.common.permissions import IsAdminUser
 from apps.user import models
 from apps.user import serializers
 from rest_framework import generics
-from channels.layers import get_channel_layer
-from asgiref.sync import async_to_sync
 
 
 class SellerCreateAPIView(generics.CreateAPIView):
@@ -89,12 +85,12 @@ class AdminUpdateAPIView(generics.UpdateAPIView):
         return user
 
 
-def notify_user(user_id, message):
-    channel_layer = get_channel_layer()
-    async_to_sync(channel_layer.group_send)(
-        f"user_{user_id}",  # Group name
-        {
-            'type': 'send_notification',
-            'message': message
-        }
-    )
+class SellerVisitCreateAPIView(generics.CreateAPIView):
+    queryset = models.SellerVisit.objects.all()
+    serializer_class = serializers.SellerVisitCreateSerializers
+    permission_classes = [IsAuthenticated,]
+
+    def get_seller_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context

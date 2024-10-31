@@ -3,34 +3,17 @@ import datetime
 from django.core.validators import RegexValidator
 from django.db import models
 from django.utils import timezone
-from apps.user.models import User, Notifications
 from django.utils.translation import gettext_lazy as _
 from apps.user.models import BaseModel, SellerCoin
-from apps.user.serializers import UserSellerCreateSerializers
+from core.settings.base import HOST
 
 
-class NotificationMixin:
-    def save(self, *args, **kwargs):
-        is_creating = self.pk is None
-        super().save(*args, **kwargs)
-        if is_creating and self.seller:
-            Notifications.objects.create(
-                title=f"Yangi {self._meta.verbose_name} yaratildi",
-                text=f"Yangi {self._meta.verbose_name} {self.seller} tomonidan yaratildi",
-                seller=self.seller,
-                is_read=False,
-                link=f"/link/{self.id}"
-            )
-
-
-class Sector(NotificationMixin, BaseModel):
+class Sector(BaseModel):
     name = models.CharField(max_length=255, verbose_name=_('Name'))
     status = models.BooleanField(default=False, verbose_name=_('Status'))
-    seller = models.ForeignKey("user.Seller", on_delete=models.CASCADE, verbose_name=_('Seller'),
+    seller = models.ForeignKey("user.Seller", on_delete=models.SET_NULL, verbose_name=_('Seller'),
                                related_name="sectors", null=True, blank=True)
-    location = models.ForeignKey('Location', on_delete=models.CASCADE, related_name="sector",
-                                 verbose_name=_('Location'),
-                                 null=True, blank=True)
+    user = models.ForeignKey("user.User", on_delete=models.PROTECT, verbose_name=_('User'), null=True, blank=True)
 
     class Meta:
         verbose_name = _("Sector")
@@ -40,12 +23,13 @@ class Sector(NotificationMixin, BaseModel):
         return self.name
 
 
-class SubLocation(NotificationMixin, BaseModel):
+class SubLocation(BaseModel):
     name = models.CharField(max_length=255, verbose_name=_('Name'))
     status = models.BooleanField(default=False, verbose_name=_('Status'))
+    archive = models.BooleanField(default=False, verbose_name=_('Archive'))
     location = models.ForeignKey('Location', on_delete=models.CASCADE, related_name='sub_locations',
                                  verbose_name=_('Location'))
-    seller = models.ForeignKey("user.Seller", on_delete=models.CASCADE, verbose_name=_('Seller'), null=True, blank=True)
+    seller = models.ForeignKey("user.Seller", on_delete=models.SET_NULL, verbose_name=_('Seller'), null=True, blank=True)
 
     class Meta:
         verbose_name = _("Sub Location")
@@ -55,12 +39,12 @@ class SubLocation(NotificationMixin, BaseModel):
         return self.name
 
 
-class Location(NotificationMixin, BaseModel):
+class Location(BaseModel):
     name = models.CharField(max_length=255, verbose_name=_('Name'))
     status = models.BooleanField(default=False, verbose_name=_('Status'))
     latitude = models.FloatField(default=0, verbose_name=_('Latitude'))
     longitude = models.FloatField(default=0, verbose_name=_('Longitude'))
-    seller = models.ForeignKey("user.Seller", on_delete=models.CASCADE, verbose_name=_('Seller'), null=True, blank=True)
+    seller = models.ForeignKey("user.Seller", on_delete=models.SET_NULL, verbose_name=_('Seller'), null=True, blank=True)
 
     class Meta:
         verbose_name = _("Location")
@@ -70,12 +54,12 @@ class Location(NotificationMixin, BaseModel):
         return self.name
 
 
-class MedicalSector(NotificationMixin, BaseModel):
+class MedicalSector(BaseModel):
     name = models.CharField(max_length=255, verbose_name=_('Name'))
     status = models.BooleanField(default=False, verbose_name=_('Status'))
-    inn_number = models.IntegerField(default=0, verbose_name=_('Inner Number'))
-    seller = models.ForeignKey("user.Seller", on_delete=models.CASCADE, verbose_name=_('Seller'), null=True, blank=True)
-    location = models.ForeignKey("Location", on_delete=models.CASCADE, related_name='medical_location',
+    inn_number = models.BigIntegerField(default=0, verbose_name=_('Inner Number'))
+    seller = models.ForeignKey("user.Seller", on_delete=models.SET_NULL, verbose_name=_('Seller'), null=True, blank=True)
+    location = models.ForeignKey("SubLocation", on_delete=models.PROTECT, related_name='medical_location',
                                  verbose_name=_('Location'), null=True,
                                  blank=True)
     sector = models.ForeignKey("Sector", on_delete=models.CASCADE, related_name='medical_sector',
@@ -121,22 +105,26 @@ class Customer(BaseModel):
     name = models.CharField(max_length=255, verbose_name=_('Name'), null=True, blank=True)
     copy_customer = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='copies',
                                       verbose_name=_('Copy Customer'))
-    seller = models.ForeignKey('user.Seller', on_delete=models.CASCADE, related_name='customers',
-                               verbose_name=_('Seller'))
-    sector = models.ForeignKey('Sector', on_delete=models.CASCADE, related_name='customers', verbose_name=_('Sector'))
-    location = models.ForeignKey('Location', on_delete=models.CASCADE, related_name='customers',
-                                 verbose_name=_('Location'))
-    medical = models.ForeignKey('MedicalSector', on_delete=models.CASCADE, related_name='customers',
+    seller = models.ForeignKey('user.Seller', on_delete=models.SET_NULL, related_name='customers',
+                               verbose_name=_('Seller'), null=True, blank=True)
+    user = models.ForeignKey("user.User", on_delete=models.PROTECT, related_name='customers', blank=True, null=True,)
+    sector = models.ForeignKey('Sector', on_delete=models.PROTECT, related_name='customers', verbose_name=_('Sector'))
+    location = models.ForeignKey('Location', on_delete=models.PROTECT, related_name='customers',
+                                 verbose_name=_('Sub Location'), null=True, blank=True)
+    sub_location = models.ForeignKey('SubLocation', on_delete=models.PROTECT, related_name='customers',
+                                 verbose_name=_('Sub Location'), null=True, blank=True)
+    medical = models.ForeignKey('MedicalSector', on_delete=models.PROTECT, related_name='customers',
                                 verbose_name=_('Medical Sector'), null=True, blank=True)
-    source = models.ForeignKey('Source', on_delete=models.CASCADE, related_name='customers', verbose_name=_('Source'))
+    source = models.ForeignKey('Source', on_delete=models.PROTECT, related_name='customers', verbose_name=_('Source'))
     products = models.ManyToManyField('Product', related_name='customers', verbose_name=_('Products'))
-    payment_type = models.ForeignKey(PaymentType, on_delete=models.CASCADE, related_name='customers', null=True,
+    payment_type = models.ForeignKey(PaymentType, on_delete=models.PROTECT, related_name='customers', null=True,
                                      blank=True, )
-    payment_method = models.ForeignKey(PaymentMethod, on_delete=models.CASCADE, related_name='customers', null=True,
+    payment_method = models.ForeignKey(PaymentMethod, on_delete=models.PROTECT, related_name='customers', null=True,
                                        blank=True, )
     status = models.CharField(max_length=20, choices=CustomerStatus.choices, default=CustomerStatus.IN_PROGRESS,
                               verbose_name=_('Status'))
     reactivate_data = models.DateTimeField(null=True, blank=True, verbose_name=_('Reactivate Data'))
+    during_at = models.DateTimeField(null=True, blank=True, verbose_name=_('During'))
     extra_phone = models.CharField(max_length=20, verbose_name=_('Extra Phone'), null=True, blank=True)
     telegram_phone = models.CharField(max_length=20, verbose_name=_('Telegram Phone'), null=True, blank=True, )
     phone_number = models.CharField(max_length=20, verbose_name=_('Phone Number'))
@@ -158,13 +146,15 @@ class Customer(BaseModel):
 
     @property
     def original_seller(self):
-        first_customer = Customer.objects.filter(phone_number=self.phone_number).order_by('created_at').first()
+        first_customer = Customer.objects.filter(phone_number=self.phone_number).order_by('id').first()
+
         if first_customer:
             return {
                 "id": first_customer.seller.id,
-                "image_url": "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png",
+                "image_url": f"{HOST}{first_customer.seller.image.url}" if first_customer.seller.image else "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png",
                 "name": first_customer.seller.full_name,
-                "phone_number": first_customer.seller.phone
+                "phone_number": first_customer.seller.phone,
+
             }
         return None
 
@@ -179,13 +169,14 @@ class Customer(BaseModel):
 class Source(BaseModel):
     name = models.CharField(max_length=255, verbose_name=_('Name'))
     status = models.BooleanField(default=False, verbose_name=_('Status'))
-    seller = models.ForeignKey("user.Seller", on_delete=models.CASCADE, verbose_name=_('Seller'), null=True, blank=True)
+    seller = models.ForeignKey("user.Seller", on_delete=models.SET_NULL, verbose_name=_('Seller'), null=True, blank=True)
+    user = models.ForeignKey('user.User', on_delete=models.PROTECT, related_name='sources', verbose_name=_('User'), null=True, blank=True)
     image = models.ImageField(upload_to='source/', verbose_name=_('Image'), null=True, blank=True)
 
     @property
     def image_url(self):
         path = 'https://static.thenounproject.com/png/5733136-200.png'
-        return path if not self.image else self.image
+        return path if not self.image else self.image.url
 
     class Meta:
         verbose_name = _("Source")
@@ -198,7 +189,8 @@ class Source(BaseModel):
 class Product(BaseModel):
     image = models.ImageField(upload_to='products/', verbose_name=_('Image'))
     name = models.CharField(max_length=255, verbose_name=_('Name'))
-    seller = models.ForeignKey("user.Seller", on_delete=models.CASCADE, verbose_name=_('Seller'), null=True, blank=True)
+    seller = models.ForeignKey("user.Seller", on_delete=models.SET_NULL, verbose_name=_('Seller'), null=True, blank=True)
+    user = models.ForeignKey('user.User', on_delete=models.PROTECT, related_name='products', verbose_name=_('User'), null=True, blank=True)
     status = models.BooleanField(default=True)
 
     class Meta:
@@ -215,6 +207,7 @@ class StatusChangeRequest(BaseModel):
         ACCEPTED = 'accepted', 'Accepted'
         REJECTED = 'rejected', 'Rejected'
         ARCHIVED = 'archived', 'Archived'
+        DELETED = 'deleted', 'Deleted'
 
     class Types(models.TextChoices):
         CUSTOMER = 'customer', 'Customer'
@@ -223,12 +216,12 @@ class StatusChangeRequest(BaseModel):
 
     type = models.CharField(max_length=20, choices=Types.choices, default=Types.COMMENT,
                             verbose_name=_('Type'))
-    comment = models.ForeignKey("user.Comment", on_delete=models.CASCADE, related_name='status_change_requests_comment',
+    comment = models.ForeignKey("user.Comment", on_delete=models.PROTECT, related_name='status_change_requests_comment',
                                 verbose_name=_('Comment'), null=True,
                                 blank=True)
-    customer = models.ForeignKey('Customer', on_delete=models.CASCADE, related_name='status_change_requests_customer',
+    customer = models.ForeignKey('Customer', on_delete=models.PROTECT, related_name='status_change_requests_customer',
                                  verbose_name=_('Customer'), null=True, blank=True)
-    seller = models.ForeignKey('user.Seller', on_delete=models.CASCADE, related_name='status_change_requests_seller',
+    seller = models.ForeignKey('user.Seller', on_delete=models.PROTECT, related_name='status_change_requests_seller',
                                verbose_name=_('Seller'))
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING,
                               verbose_name=_('Status'))
@@ -254,13 +247,29 @@ class StatusChangeRequest(BaseModel):
                 self.save()
                 self.customer.save()
 
-                if self.new_status == CustomerStatus.ACTIVE:
+                if self.new_status == 'active':
                     copied_customers = Customer.objects.filter(phone_number=self.customer.phone_number).exclude(
                         id=self.customer.id)
+                    self.customer.during_at = current_time
+                    self.customer.during_at += datetime.timedelta(days=90)
+                    self.customer.save()
+                    SellerCoin.objects.create(
+                        action='do_activation',
+                        seller=self.seller,
+                        coins=21
+                    )
                     for customer in copied_customers:
                         customer.status = CustomerStatus.ARCHIVED
                         customer.status_changed_at = current_time
                         customer.save()
+                if self.new_status == 'in_progress':
+                    self.customer.during_at = current_time
+                    self.customer.during_at += datetime.timedelta(days=60)
+                    self.customer.save()
+
+                if self.new_status == 'in_base':
+                    self.customer.during_at = current_time
+                    self.customer.save()
 
         elif self.type == self.Types.COMMENT:
             if self.comment:
@@ -306,9 +315,9 @@ class StatusChangeRequest(BaseModel):
 
 
 class Sale(models.Model):
-    request = models.OneToOneField('StatusChangeRequest', on_delete=models.CASCADE, related_name='sale_request')
+    request = models.OneToOneField('StatusChangeRequest', on_delete=models.PROTECT, related_name='sale_request')
     product = models.ManyToManyField('Product', verbose_name=_('Product'))
-    sub_location = models.ForeignKey('SubLocation', on_delete=models.CASCADE, verbose_name=_('SubLocation'))
-    seller = models.ForeignKey('user.Seller', on_delete=models.CASCADE, verbose_name=_('Seller'))
+    sub_location = models.ForeignKey('SubLocation', on_delete=models.PROTECT, verbose_name=_('SubLocation'))
+    seller = models.ForeignKey('user.Seller', on_delete=models.PROTECT, verbose_name=_('Seller'))
     sale_amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name=_('Sale Amount'))
     approved_at = models.DateTimeField(auto_now_add=True, verbose_name=_('Approved At'))

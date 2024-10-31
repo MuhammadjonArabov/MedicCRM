@@ -1,10 +1,7 @@
-from venv import create
-
-from autobahn.wamp.gen.wamp.proto.Serializer import Serializer
 from rest_framework import serializers
 import re
 from apps.user import models
-from apps.user.models import User, Page, Seller, Notifications
+from apps.user.models import User, Page, Seller
 
 
 class UserSellerCreateSerializers(serializers.ModelSerializer):
@@ -98,7 +95,7 @@ class SellerLoginSerializers(serializers.ModelSerializer):
 class CommentsSerializers(serializers.ModelSerializer):
     class Meta:
         model = models.Comment
-        fields = ('id', 'status', 'text', 'audio', 'video', 'customer', 'seller', 'created_at', 'updated_at')
+        fields = ('id', 'status', 'text', 'audio', 'customer', 'seller', 'created_at', 'updated_at')
 
 
 class SellerCoinsSerializers(serializers.ModelSerializer):
@@ -144,4 +141,29 @@ class AdminUpdateSerializers(serializers.ModelSerializer):
         return instance
 
 
+class SellerVisitCreateSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = models.SellerVisit
+        fields = ['last_visit', 'visit_count']
 
+    def create(self, validate_data):
+        user = self.context['request'].user
+        seller = Seller.objects.filter(user=user, status='active').first()
+
+        seller_visit = models.SellerVisit.objects.create(
+            seller=seller,
+            last_visit=validate_data.get('last_visit'),
+            visit_count=validate_data.get('visit_count', 0),
+        )
+        return seller_visit
+
+    def update(self, instance, validate_data):
+        user = self.context['request'].user
+        seller = Seller.objects.filter(user=user, status='active').first()
+
+        instance.seller = seller,
+        instance.last_visit = validate_data.get('last_visit', instance.last_visit),
+        instance.visit_count = validate_data.get('visit_count', instance.visit_count)
+        instance.save()
+
+        return instance

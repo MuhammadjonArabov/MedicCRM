@@ -12,6 +12,7 @@ urlpatterns = [
     #GET
     path('comments/', views.CommentAPIView.as_view(), name='comments'),
     path('profile/', views.UserDetailAPIView.as_view(), name='user-profile'),
+    path('page-list/', views.PageListAPIView.as_view(), name='page-list'),
 
     #PUT and PATCH
     path('admin-update/', views.AdminUpdateAPIView.as_view(), name='admin-update'),

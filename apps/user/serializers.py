@@ -167,3 +167,8 @@ class SellerVisitCreateSerializers(serializers.ModelSerializer):
         instance.save()
 
         return instance
+
+class PageSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = Page
+        fields = ['id', 'name']

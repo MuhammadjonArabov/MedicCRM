@@ -49,3 +49,14 @@ class IsSellerPage(BasePermission):
             raise PermissionDenied("Sahifaga ruxsat yo'q")
 
         return True
+
+
+class IsSellerOrAdmin(BasePermission):
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            raise PermissionDenied('Foydalanuvchi authenticatedsiya qilinmagan yoki token mavjud emas')
+
+        if not (request.user.is_superuser or request.user.sellers.filter(status='active').first()):
+            raise PermissionDenied('Foydalanauvchi admin yoki active seller emas')
+
+        return True

@@ -4,7 +4,7 @@ from django.utils.datetime_safe import datetime
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from apps.common.permissions import IsAdminUser
+from apps.common.permissions import IsAdminUser, IsSellerOrAdmin
 from apps.user import models
 from apps.user import serializers
 from rest_framework import generics
@@ -94,3 +94,8 @@ class SellerVisitCreateAPIView(generics.CreateAPIView):
         context = super().get_serializer_context()
         context['request'] = self.request
         return context
+
+class PageListAPIView(generics.ListAPIView):
+    queryset = models.Page.objects.all()
+    serializer_class = serializers.PageSerializers
+    permission_classes = [IsSellerOrAdmin]

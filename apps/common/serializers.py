@@ -30,15 +30,6 @@ class SubLocationCreateSerializers(serializers.ModelSerializer):
 
         sub_location = SubLocation.objects.create(**validated_data)
 
-        if seller:
-            Notifications.objects.create(
-                title="Yangi sub location yaratildi",
-                text=f"Yangi sub location {seller} yaratdi",
-                seller=seller,
-                is_read=False,
-                link=f"/sub-location/{sub_location.id}"
-            )
-
         return sub_location
 
 
@@ -61,14 +52,6 @@ class SectorListCreateSerializers(serializers.ModelSerializer):
             validated_data['status'] = False
         sector = Sector.objects.create(**validated_data)
 
-        if seller:
-            Notifications.objects.create(
-                title='Sector yaratildi',
-                text=f'Sectorni {seller} yaratdi',
-                seller=seller,
-                is_read=False,
-                link=f'/sector/{sector.id}'
-            )
         return sector
 
 
@@ -96,14 +79,6 @@ class LocationListCreateSerializers(serializers.ModelSerializer):
 
         location = Location.objects.create(**validated_data)
 
-        if seller:
-            Notifications.objects.create(
-                title='Location yaratildi',
-                text=f'Locationni {seller} yaratdi',
-                seller=seller,
-                link=f'/location/{location.id}'
-            )
-
         return location
 
 
@@ -128,13 +103,6 @@ class MedicalSectorListCreateSerializers(serializers.ModelSerializer):
 
         medical_sector = MedicalSector.objects.create(**validated_data)
 
-        if seller:
-            Notifications.objects.create(
-                title='Medical sector yratildi',
-                text=f'Medical sectorni {seller} yaratdi',
-                seller=seller,
-                link=f'/medical-sector/{medical_sector.id}'
-            )
         return medical_sector
 
 

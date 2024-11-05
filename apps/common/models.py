@@ -11,7 +11,7 @@ from core.settings.base import HOST
 class NotificationModelMix:
     def save(self, *args, **kwargs):
         created = self.pk is None
-        super().save(*args, **kwargs)
+        super(NotificationModelMix, self).save(*args, **kwargs)
         if created and self.seller:
             Notifications.objects.create(
                 title=f"Yangi {self._meta.verbose_name} yaratildi",
@@ -20,6 +20,7 @@ class NotificationModelMix:
                 is_read=False,
                 link=f"/link/{self.id}"
             )
+
 
 class Sector(BaseModel, NotificationModelMix):
     name = models.CharField(max_length=255, verbose_name=_('Name'))

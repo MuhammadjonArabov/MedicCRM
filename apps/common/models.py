@@ -4,11 +4,24 @@ from django.core.validators import RegexValidator
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
-from apps.user.models import BaseModel, SellerCoin
+from apps.user.models import BaseModel, SellerCoin, Notifications
 from core.settings.base import HOST
 
 
-class Sector(BaseModel):
+class NotificationModelMix:
+    def save(self, *args, **kwargs):
+        created = self.pk is None
+        super().save(*args, **kwargs)
+        if created and self.seller:
+            Notifications.objects.create(
+                title=f"Yangi {self._meta.verbose_name} yaratildi",
+                text=f"Yangi {self._meta.verbose_name} {self.seller} tomonidan yaratildi",
+                seller=self.seller,
+                is_read=False,
+                link=f"/link/{self.id}"
+            )
+
+class Sector(BaseModel, NotificationModelMix):
     name = models.CharField(max_length=255, verbose_name=_('Name'))
     status = models.BooleanField(default=False, verbose_name=_('Status'))
     seller = models.ForeignKey("user.Seller", on_delete=models.SET_NULL, verbose_name=_('Seller'),
@@ -23,7 +36,7 @@ class Sector(BaseModel):
         return self.name
 
 
-class SubLocation(BaseModel):
+class SubLocation(BaseModel, NotificationModelMix):
     name = models.CharField(max_length=255, verbose_name=_('Name'))
     status = models.BooleanField(default=False, verbose_name=_('Status'))
     archive = models.BooleanField(default=False, verbose_name=_('Archive'))
@@ -39,7 +52,7 @@ class SubLocation(BaseModel):
         return self.name
 
 
-class Location(BaseModel):
+class Location(BaseModel, NotificationModelMix):
     name = models.CharField(max_length=255, verbose_name=_('Name'))
     status = models.BooleanField(default=False, verbose_name=_('Status'))
     latitude = models.FloatField(default=0, verbose_name=_('Latitude'))
@@ -54,7 +67,7 @@ class Location(BaseModel):
         return self.name
 
 
-class MedicalSector(BaseModel):
+class MedicalSector(BaseModel, NotificationModelMix):
     name = models.CharField(max_length=255, verbose_name=_('Name'))
     status = models.BooleanField(default=False, verbose_name=_('Status'))
     inn_number = models.BigIntegerField(default=0, verbose_name=_('Inner Number'))

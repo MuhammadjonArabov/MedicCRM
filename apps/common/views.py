@@ -33,7 +33,6 @@ class SectorListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = serializers.SectorListCreateSerializers
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ['location_id']
     search_fields = ['name']
 
     def get_queryset(self):
@@ -113,7 +112,7 @@ class SourceListCreateAPIView(generics.ListCreateAPIView):
 
 
 class LocationNameListApiView(generics.ListAPIView):
-    queryset = models.Location.objects.all()
+    queryset = models.Location.objects.filter(status=True)
     serializer_class = serializers.LocationNameListSerializers
     permission_classes = [IsAuthenticated]
 

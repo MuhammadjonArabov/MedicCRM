@@ -88,12 +88,13 @@ class AdminUpdateAPIView(generics.UpdateAPIView):
 class SellerVisitCreateAPIView(generics.CreateAPIView):
     queryset = models.SellerVisit.objects.all()
     serializer_class = serializers.SellerVisitCreateSerializers
-    permission_classes = [IsAuthenticated,]
+    permission_classes = [IsAuthenticated, ]
 
     def get_seller_context(self):
         context = super().get_serializer_context()
         context['request'] = self.request
         return context
+
 
 class PageListAPIView(generics.ListAPIView):
     queryset = models.Page.objects.all()
@@ -102,6 +103,8 @@ class PageListAPIView(generics.ListAPIView):
 
 
 class AdminNotificationCreateAPIView(APIView):
+    permission_classes = [IsAdminUser]
+
     def post(self, request, *args, **kwargs):
         serializer = serializers.AdminNotificationSerializers(data=request.data)
 
@@ -118,7 +121,6 @@ class AdminNotificationCreateAPIView(APIView):
                     seller = models.Seller.objects.get(id=seller_id)
                 except models.Seller.DoesNotExist:
                     raise ValidationError(f"Seller with ID {seller_id} does not exist.")
-
 
                 notification = models.Notifications.objects.create(
                     title=title,

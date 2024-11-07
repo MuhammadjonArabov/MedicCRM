@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 from apps.common.permissions import IsAdminUser, IsSellerOrAdmin
 from apps.user import models
 from apps.user import serializers
-from rest_framework import generics
+from rest_framework import generics, status
 
 
 class SellerCreateAPIView(generics.CreateAPIView):
@@ -99,3 +99,42 @@ class PageListAPIView(generics.ListAPIView):
     queryset = models.Page.objects.all()
     serializer_class = serializers.PageSerializers
     permission_classes = [IsSellerOrAdmin]
+
+
+class AdminNotificationCreateAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        serializer = serializers.AdminNotificationSerializers(data=request.data)
+
+        if serializer.is_valid():
+            validate_data = serializer.validated_data
+            title = validate_data.get('title')
+            text = validate_data.get('text')
+            seller_ids = validate_data.get('seller')
+
+            notifications = []
+
+            for seller_id in seller_ids:
+                try:
+                    seller = models.Seller.objects.get(id=seller_id)
+                except models.Seller.DoesNotExist:
+                    raise ValidationError(f"Seller with ID {seller_id} does not exist.")
+
+
+                notification = models.Notifications.objects.create(
+                    title=title,
+                    text=text,
+                    seller=seller,
+                    is_read=False,
+                    link=None
+                )
+                notifications.append(notification)
+
+            return Response(
+                {'message': 'Notifications created successfully', 'data': serializer.data},
+                status=status.HTTP_201_CREATED
+            )
+        else:
+            return Response(
+                {'errors': serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST
+            )

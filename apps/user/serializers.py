@@ -1,7 +1,7 @@
 from rest_framework import serializers
 import re
 from apps.user import models
-from apps.user.models import User, Page, Seller
+from apps.user.models import User, Page, Seller, Notifications
 
 
 class UserSellerCreateSerializers(serializers.ModelSerializer):
@@ -172,3 +172,14 @@ class PageSerializers(serializers.ModelSerializer):
     class Meta:
         model = Page
         fields = ['id', 'name']
+
+class AdminNotificationSerializers(serializers.ModelSerializer):
+    text = serializers.CharField()
+    title = serializers.CharField(max_length=255)
+    seller =serializers.ListField(
+        child=serializers.IntegerField(),
+        write_only=True
+    )
+    class Meta:
+        model = Notifications
+        fields = ['text', 'title', 'seller']

@@ -140,3 +140,22 @@ class AdminNotificationCreateAPIView(APIView):
                 {'errors': serializer.errors},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+class CommentCreateAPIView(generics.CreateAPIView):
+    queryset = models.Comment.objects.all()
+    serializer_class = serializers.CommentCreateSerializers
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer(self, *args, **kwargs):
+        kwargs['data'] = kwargs.get('data', {}).copy()
+        customer_id = self.kwargs.get('customer_id')
+
+        if not customer_id:
+            raise ValidationError('Ushbu Id da Customer topilmadi')
+
+        kwargs['data']['customer_id'] = customer_id
+        return super().get_serializer(*args, **kwargs)
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        customer_id = self.kwargs.get('customer_id')

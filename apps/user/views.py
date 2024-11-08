@@ -1,6 +1,7 @@
 from django.core.exceptions import PermissionDenied
 from rest_framework.exceptions import ValidationError
 from django.utils.datetime_safe import datetime
+from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -8,6 +9,7 @@ from apps.common.permissions import IsAdminUser, IsSellerOrAdmin
 from apps.user import models
 from apps.user import serializers
 from rest_framework import generics, status
+from apps.common import models as common_model
 
 
 class SellerCreateAPIView(generics.CreateAPIView):
@@ -141,6 +143,7 @@ class AdminNotificationCreateAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+
 class CommentCreateAPIView(generics.CreateAPIView):
     queryset = models.Comment.objects.all()
     serializer_class = serializers.CommentCreateSerializers
@@ -159,3 +162,12 @@ class CommentCreateAPIView(generics.CreateAPIView):
     def perform_create(self, serializer):
         user = self.request.user
         customer_id = self.kwargs.get('customer_id')
+        customer = get_object_or_404(common_model.Customer, id=customer_id)
+
+        if user.is_superuser:
+            serializer.save(customer=customer, user=user)
+        else:
+            active_seller = user.sellers.filter(status='active').first()
+            if not active_seller:
+                raise ValidationError("Active seller not fount")
+            serializer.save(seller=active_seller, customer=customer, user=user)

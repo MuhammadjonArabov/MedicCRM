@@ -1,5 +1,8 @@
 from rest_framework import serializers
 import re
+
+from rest_framework.exceptions import ValidationError
+
 from apps.user import models
 from apps.user.models import User, Page, Seller, Notifications, Comment
 
@@ -194,3 +197,7 @@ class CommentCreateSerializers(serializers.ModelSerializer):
             'audio': {'required': False},
             'file': {'required': False},
         }
+        def validate(self, data):
+            if not data.get('text') and not data.get('audio') and not data.get('file'):
+                raise ValidationError("Hamma maydonlar bo'sh bo'lishi mumkun emas!")
+            return data

@@ -1,7 +1,7 @@
 from rest_framework import serializers
 import re
 from apps.user import models
-from apps.user.models import User, Page, Seller, Notifications
+from apps.user.models import User, Page, Seller, Notifications, Comment
 
 
 class UserSellerCreateSerializers(serializers.ModelSerializer):
@@ -183,3 +183,14 @@ class AdminNotificationSerializers(serializers.ModelSerializer):
     class Meta:
         model = Notifications
         fields = ['text', 'title', 'seller']
+
+
+class CommentCreateSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = Comment
+        fields = ['text', 'audio', 'file']
+        extra_kwargs = {
+            'text': {'required': False},
+            'audio': {'required': False},
+            'file': {'required': False},
+        }

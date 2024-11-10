@@ -1,3 +1,4 @@
+from django.db.models.fields import return_None
 from rest_framework import serializers
 import re
 
@@ -206,3 +207,43 @@ class CommentCreateSerializers(serializers.ModelSerializer):
         if not (data.get('text') or data.get('audio') or data.get('file')):
             raise serializers.ValidationError("Kamida bitta: 'text', 'audio', yoki 'file' maydonini to'ldiring.")
         return data
+
+class SmsSerializers(serializers.Serializer):
+    customer_ids = serializers.ListField(child=serializers.IntegerField(), allow_null=True, required=False)
+    message = serializers.CharField(max_length=550, write_only=True, required=True,
+                                    error_messages={
+                                        "null": "Xabar bo'sh bo'lmaydi",
+                                        "blank": "Xabar bo'sh bo'lmaydi"
+                                    })
+    title = serializers.CharField(max_length=225, write_only=True, required=False, allow_null=True)
+    sending_at = serializers.DateTimeField(allow_null=True, required=False)
+    status = serializers.CharField(required=True, error_messages={
+        "null": "Kimga yuborishni belgilashingiz kerak",
+        "blank": "Kimga yuborishni belgilashingiz kerak"
+    })
+
+    def create(self, validated_data):
+        customer_ids = validated_data.get('customer_ids', [])
+        message = validated_data.get('message')
+        title = validated_data.get('title')
+        sending_at = validated_data.get('sending_at')
+        status = validated_data.get('status')
+
+        if status and status != '':
+            customer_send = Customer.objects.filter(status=status).exclude(id__in=customer_ids)
+        else:
+            customer_send = Customer.objects.exclude(id__in=customer_ids)
+
+        if customer_ids.exists():
+            sms_message = models.Sms.objects.create(
+                title=title, message=message, sending_at=sending_at
+            )
+            sms_message.customers.set(customer_send)
+
+            for customer in customer_send:
+                pass
+
+        return {
+            "status": "SMS yuborilmoqda",
+            "count": customer_send.count()
+        }

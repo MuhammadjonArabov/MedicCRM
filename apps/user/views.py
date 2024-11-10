@@ -4,6 +4,7 @@ from django.utils.datetime_safe import datetime
 from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.serializers import as_serializer_error
 from rest_framework.views import APIView
 from apps.common.permissions import IsAdminUser, IsSellerOrAdmin
 from apps.user import models
@@ -148,3 +149,14 @@ class CommentCreateAPIView(generics.CreateAPIView):
     queryset = models.Comment.objects.all()
     serializer_class = serializers.CommentCreateSerializers
     permission_classes = [IsAuthenticated]
+
+
+class SmsAdminCreateAPIView(generics.CreateAPIView):
+    serializer_class = serializers.SmsAdminCreateSerializers
+    permission_classes = [IsAdminUser]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = serializer.save()
+        return Response(result, 201)

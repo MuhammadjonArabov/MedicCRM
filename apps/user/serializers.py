@@ -208,7 +208,7 @@ class CommentCreateSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError("Kamida bitta: 'text', 'audio', yoki 'file' maydonini to'ldiring.")
         return data
 
-class SmsSerializers(serializers.Serializer):
+class SmsAdminCreateSerializers(serializers.Serializer):
     customer_ids = serializers.ListField(child=serializers.IntegerField(), allow_null=True, required=False)
     message = serializers.CharField(max_length=550, write_only=True, required=True,
                                     error_messages={

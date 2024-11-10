@@ -3,6 +3,7 @@ import re
 
 from rest_framework.exceptions import ValidationError
 
+from apps.common.models import Customer
 from apps.user import models
 from apps.user.models import User, Page, Seller, Notifications, Comment
 
@@ -189,12 +190,13 @@ class AdminNotificationSerializers(serializers.ModelSerializer):
 
 
 
-class CommentCreateSerializer(serializers.ModelSerializer):
+class CommentCreateSerializers(serializers.ModelSerializer):
+    customer_id = serializers.IntegerField(write_only=True)
     class Meta:
-        model = models.Comment
-        fields = ['text', 'audio', 'file']
-        extra_kwargs = {
-            'text': {
-                'required': False,
-            }
-        }
+        model = Comment
+        fields = ['text', 'audio', 'file', 'customer_id']
+
+    def create(self, validated_data):
+        customer_id = validated_data.pop('customer_id')
+        validated_data['customer'] = Customer.objects.get(id=customer_id)
+        return super().create(validated_data)

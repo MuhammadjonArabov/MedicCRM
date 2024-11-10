@@ -144,26 +144,7 @@ class AdminNotificationCreateAPIView(APIView):
             )
 
 
-class CommentCreateView(generics.CreateAPIView):
+class CommentCreateAPIView(generics.CreateAPIView):
     queryset = models.Comment.objects.all()
-    serializer_class = serializers.CommentCreateSerializer
-    permission_classes = [IsSellerOrAdmin]
-
-    def get_serializer(self, *args, **kwargs):
-        kwargs['data'] = kwargs.get('data', {}).copy()
-        customer_id = self.kwargs.get('customer_id')
-        if self.request.method == 'POST' and customer_id:
-            kwargs['data']['customer_id'] = customer_id
-
-        return super().get_serializer(*args, **kwargs)
-
-    def perform_create(self, serializer):
-        user = self.request.user
-        customer_id = self.kwargs.get('customer_id')
-        customer = get_object_or_404(common_models.Customer, id=customer_id)
-        if serializer.is_valid(raise_exception=True):
-            if user.is_superuser:
-                serializer.save(customer=customer, user=user)
-            elif user and user.sellers.filter(status='active').first():
-                serializer.save(customer=customer, seller=user.sellers.filter(status='active').first(), user=user)
-
+    serializer_class = serializers.CommentCreateSerializers
+    permission_classes = [IsAuthenticated]

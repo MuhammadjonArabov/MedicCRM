@@ -9,7 +9,7 @@ from apps.common.permissions import IsAdminUser, IsSellerOrAdmin
 from apps.user import models
 from apps.user import serializers
 from rest_framework import generics, status
-from apps.common import models as common_model
+from apps.common import models as common_models
 
 
 class SellerCreateAPIView(generics.CreateAPIView):
@@ -144,30 +144,26 @@ class AdminNotificationCreateAPIView(APIView):
             )
 
 
-class CommentCreateAPIView(generics.CreateAPIView):
+class CommentCreateView(generics.CreateAPIView):
     queryset = models.Comment.objects.all()
-    serializer_class = serializers.CommentCreateSerializers
-    permission_classes = [IsAuthenticated]
+    serializer_class = serializers.CommentCreateSerializer
+    permission_classes = [IsSellerOrAdmin]
 
     def get_serializer(self, *args, **kwargs):
         kwargs['data'] = kwargs.get('data', {}).copy()
         customer_id = self.kwargs.get('customer_id')
+        if self.request.method == 'POST' and customer_id:
+            kwargs['data']['customer_id'] = customer_id
 
-        if not customer_id:
-            raise ValidationError('Ushbu Id da Customer topilmadi')
-
-        kwargs['data']['customer_id'] = customer_id
         return super().get_serializer(*args, **kwargs)
 
     def perform_create(self, serializer):
         user = self.request.user
         customer_id = self.kwargs.get('customer_id')
-        customer = get_object_or_404(common_model.Customer, id=customer_id)
+        customer = get_object_or_404(common_models.Customer, id=customer_id)
+        if serializer.is_valid(raise_exception=True):
+            if user.is_superuser:
+                serializer.save(customer=customer, user=user)
+            elif user and user.sellers.filter(status='active').first():
+                serializer.save(customer=customer, seller=user.sellers.filter(status='active').first(), user=user)
 
-        if user.is_superuser:
-            serializer.save(customer=customer, user=user)
-        else:
-            active_seller = user.sellers.filter(status='active').first()
-            if not active_seller:
-                raise ValidationError("Active seller not fount")
-            serializer.save(seller=active_seller, customer=customer, user=user)

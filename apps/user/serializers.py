@@ -188,16 +188,13 @@ class AdminNotificationSerializers(serializers.ModelSerializer):
         fields = ['text', 'title', 'seller']
 
 
-class CommentCreateSerializers(serializers.ModelSerializer):
+
+class CommentCreateSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Comment
+        model = models.Comment
         fields = ['text', 'audio', 'file']
         extra_kwargs = {
-            'text': {'required': False},
-            'audio': {'required': False},
-            'file': {'required': False},
+            'text': {
+                'required': False,
+            }
         }
-        def validate(self, data):
-            if not data.get('text') and not data.get('audio') and not data.get('file'):
-                raise ValidationError("Hamma maydonlar bo'sh bo'lishi mumkun emas!")
-            return data

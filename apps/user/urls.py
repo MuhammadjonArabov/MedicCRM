@@ -1,4 +1,5 @@
 from django.urls import path
+from zope.interface import named
 
 from . import views
 
@@ -9,6 +10,7 @@ urlpatterns = [
     path('seller-create/', views.SellerCreateAPIView.as_view(), name='seller-create'),
     path('seller-login/', views.SellerLoginAPIView.as_view(), name='seller-login'),
     path('admin-notification/', views.AdminNotificationCreateAPIView.as_view(), name='admin-notification'),
+    path('comment-create/', views.CommentCreateView.as_view(), name='comment-create'),
 
     #GET
     path('comments/', views.CommentAPIView.as_view(), name='comments'),

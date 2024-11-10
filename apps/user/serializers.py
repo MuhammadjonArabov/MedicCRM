@@ -192,6 +192,7 @@ class AdminNotificationSerializers(serializers.ModelSerializer):
 
 class CommentCreateSerializers(serializers.ModelSerializer):
     customer_id = serializers.IntegerField(write_only=True)
+
     class Meta:
         model = Comment
         fields = ['text', 'audio', 'file', 'customer_id']
@@ -200,3 +201,8 @@ class CommentCreateSerializers(serializers.ModelSerializer):
         customer_id = validated_data.pop('customer_id')
         validated_data['customer'] = Customer.objects.get(id=customer_id)
         return super().create(validated_data)
+
+    def validate(self, data):
+        if not (data.get('text') or data.get('audio') or data.get('file')):
+            raise serializers.ValidationError("Kamida bitta: 'text', 'audio', yoki 'file' maydonini to'ldiring.")
+        return data

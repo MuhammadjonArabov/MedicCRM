@@ -1,3 +1,5 @@
+import json
+
 from rest_framework import serializers
 import re
 
@@ -252,3 +254,25 @@ class SellerUpdateSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = models.Seller
+        fields = (
+            "phone", "full_name", "image", "registered_address",
+            "passport_img", "location_type", "personal_phone",
+            "page_permissions", "status", "pinfl", "address",
+            "password", "user", 'score'
+        )
+
+    def validate(self, value):
+        try:
+            page_permissions = json.load(value)
+        except json.JSONDecodeError:
+            raise serializers.ValidationError("page_permissions JSON formatda bo'lishi kerak")
+
+        if not isinstance(page_permissions, list):
+            raise serializers.ValidationError("page_permissions ro'yxat bo'lishi kerak")
+
+        try:
+            page_permissions = [int(item) for item in page_permissions]
+        except ValueError:
+            raise serializers.ValidationError("page_permissions faqat integer qiymatlari bo'lishi kerak.")
+
+        return page_permissions

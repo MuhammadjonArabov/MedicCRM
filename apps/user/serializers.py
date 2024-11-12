@@ -1,8 +1,5 @@
-from django.db.models.fields import return_None
 from rest_framework import serializers
 import re
-
-from rest_framework.exceptions import ValidationError
 
 from apps.common.models import Customer
 from apps.user import models
@@ -247,3 +244,11 @@ class SmsAdminCreateSerializers(serializers.Serializer):
             "status": "SMS yuborilmoqda",
             "count": customer_send.count()
         }
+
+class SellerUpdateSerializers(serializers.ModelSerializer):
+    page_permissions = serializers.CharField(required=False, allow_null=True)
+    password = serializers.CharField(required=False, write_only=True)
+    user = serializers.PrimaryKeyRelatedField(queryset=models.User.objects.all(), required=False)
+
+    class Meta:
+        model = models.Seller

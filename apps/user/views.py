@@ -161,3 +161,8 @@ class SmsAdminCreateAPIView(generics.CreateAPIView):
         result = serializer.save()
         return Response(result, 201)
 
+class SellerUpdateAPIView(generics.UpdateAPIView):
+    queryset = models.Seller.objects.filter(status='active')
+    lookup_field = 'pk'
+    serializer_class = serializers.SellerUpdateSerializers
+    permission_classes = [IsAdminUser]

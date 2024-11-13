@@ -19,6 +19,6 @@ urlpatterns = [
 
     #PUT and PATCH
     path('admin-update/', views.AdminUpdateAPIView.as_view(), name='admin-update'),
-    #path('seller-update/<int:pk>/', views.SellerUpdateAPIView.as_view(), name='seller-update')
+    path('seller-update/<int:pk>/', views.SellerUpdateAPIView.as_view(), name='seller-update')
 
 ]

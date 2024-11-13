@@ -172,22 +172,24 @@ class SellerVisitCreateSerializers(serializers.ModelSerializer):
 
         return instance
 
+
 class PageSerializers(serializers.ModelSerializer):
     class Meta:
         model = Page
         fields = ['id', 'name']
 
+
 class AdminNotificationSerializers(serializers.ModelSerializer):
     text = serializers.CharField()
     title = serializers.CharField(max_length=255)
-    seller =serializers.ListField(
+    seller = serializers.ListField(
         child=serializers.IntegerField(),
         write_only=True
     )
+
     class Meta:
         model = Notifications
         fields = ['text', 'title', 'seller']
-
 
 
 class CommentCreateSerializers(serializers.ModelSerializer):
@@ -207,3 +209,48 @@ class CommentCreateSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError("Kamida bitta: 'text', 'audio', yoki 'file' maydonini to'ldiring.")
         return data
 
+
+class SellerUpdateSerializers(serializers.ModelSerializer):
+    page_permissions = serializers.CharField(required=False, allow_null=True)
+    password = serializers.CharField(required=False, write_only=True)
+    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), required=False)
+
+    class Meta:
+        model = Seller
+        fields = (
+            "phone", "full_name", "image", "registered_address",
+            "passport_img", "location_type", "personal_phone", "page_permissions",
+            "status", "pinfl", "address", "password", "user", 'score'
+        )
+
+    def validate_page_permissions(self, value):
+        try:
+            page_permissions = json.load(value)
+        except json.JSONDecodeError:
+            raise serializers.ValidationError("page_permissions JSON formatida bo'lishi kerak.")
+
+        if not isinstance(page_permissions, list):
+            raise serializers.ValidationError("page_permissions [] ro'yxat bo'lishi kerak")
+        try:
+            page_permissions = [int(item) for item in page_permissions]
+        except ValueError:
+            raise serializers.ValidationError("page_permissions faqat integer qiymatlari bo'lishi kerak.")
+
+        return page_permissions
+
+    def update(self, instance, validated_data):
+        if 'page_permissions' in validated_data:
+            page_permissions = validated_data.pop('page_permissions')
+            pages = Page.objects.filter(id__in=page_permissions)
+            instance.page_permissions.set(pages)
+
+        if 'password' in validated_data:
+            password = validated_data.pop('password')
+            instance.user.set_password(password)
+            instance.user.save()
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.save()
+        return instance

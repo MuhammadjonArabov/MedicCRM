@@ -4,25 +4,11 @@ from django.core.validators import RegexValidator
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
-from apps.user.models import BaseModel, SellerCoin, Notifications
+from apps.user.models import BaseModel, SellerCoin
 from core.settings.base import HOST
 
 
-class NotificationModelMix:
-    def save(self, *args, **kwargs):
-        created = self.pk is None
-        super(NotificationModelMix, self).save(*args, **kwargs)
-        if created and self.seller:
-            Notifications.objects.create(
-                title=f"Yangi {self._meta.verbose_name} yaratildi",
-                text=f"Yangi {self._meta.verbose_name} {self.seller} tomonidan yaratildi",
-                seller=self.seller,
-                is_read=False,
-                link=f"/link/{self.id}"
-            )
-
-
-class Sector(BaseModel, NotificationModelMix):
+class Sector(BaseModel):
     name = models.CharField(max_length=255, verbose_name=_('Name'))
     status = models.BooleanField(default=False, verbose_name=_('Status'))
     seller = models.ForeignKey("user.Seller", on_delete=models.SET_NULL, verbose_name=_('Seller'),
@@ -37,13 +23,15 @@ class Sector(BaseModel, NotificationModelMix):
         return self.name
 
 
-class SubLocation(BaseModel, NotificationModelMix):
+class SubLocation(BaseModel):
     name = models.CharField(max_length=255, verbose_name=_('Name'))
     status = models.BooleanField(default=False, verbose_name=_('Status'))
     archive = models.BooleanField(default=False, verbose_name=_('Archive'))
     location = models.ForeignKey('Location', on_delete=models.CASCADE, related_name='sub_locations',
                                  verbose_name=_('Location'))
-    seller = models.ForeignKey("user.Seller", on_delete=models.SET_NULL, verbose_name=_('Seller'), null=True, blank=True)
+    seller = models.ForeignKey("user.Seller", on_delete=models.SET_NULL, verbose_name=_('Seller'), null=True,
+                               blank=True)
+    city = models.BooleanField(default=False, verbose_name=_('City'), null=True, blank=True)
 
     class Meta:
         verbose_name = _("Sub Location")
@@ -53,12 +41,13 @@ class SubLocation(BaseModel, NotificationModelMix):
         return self.name
 
 
-class Location(BaseModel, NotificationModelMix):
+class Location(BaseModel):
     name = models.CharField(max_length=255, verbose_name=_('Name'))
     status = models.BooleanField(default=False, verbose_name=_('Status'))
     latitude = models.FloatField(default=0, verbose_name=_('Latitude'))
     longitude = models.FloatField(default=0, verbose_name=_('Longitude'))
-    seller = models.ForeignKey("user.Seller", on_delete=models.SET_NULL, verbose_name=_('Seller'), null=True, blank=True)
+    seller = models.ForeignKey("user.Seller", on_delete=models.SET_NULL, verbose_name=_('Seller'), null=True,
+                               blank=True)
 
     class Meta:
         verbose_name = _("Location")
@@ -68,14 +57,15 @@ class Location(BaseModel, NotificationModelMix):
         return self.name
 
 
-class MedicalSector(BaseModel, NotificationModelMix):
+class MedicalSector(BaseModel):
     name = models.CharField(max_length=255, verbose_name=_('Name'))
     status = models.BooleanField(default=False, verbose_name=_('Status'))
     inn_number = models.BigIntegerField(default=0, verbose_name=_('Inner Number'))
-    seller = models.ForeignKey("user.Seller", on_delete=models.SET_NULL, verbose_name=_('Seller'), null=True, blank=True)
-    location = models.ForeignKey("SubLocation", on_delete=models.PROTECT, related_name='medical_location',
-                                 verbose_name=_('Location'), null=True,
-                                 blank=True)
+    seller = models.ForeignKey("user.Seller", on_delete=models.SET_NULL, verbose_name=_('Seller'), null=True,
+                               blank=True)
+    sub_location = models.ForeignKey("SubLocation", on_delete=models.PROTECT, related_name='medical_sub_location',
+                                     verbose_name=_('Sub Location'), null=True,
+                                     blank=True)
     sector = models.ForeignKey("Sector", on_delete=models.CASCADE, related_name='medical_sector',
                                verbose_name=_('Sector'), null=True, blank=True)
 
@@ -121,12 +111,12 @@ class Customer(BaseModel):
                                       verbose_name=_('Copy Customer'))
     seller = models.ForeignKey('user.Seller', on_delete=models.SET_NULL, related_name='customers',
                                verbose_name=_('Seller'), null=True, blank=True)
-    user = models.ForeignKey("user.User", on_delete=models.PROTECT, related_name='customers', blank=True, null=True,)
+    user = models.ForeignKey("user.User", on_delete=models.PROTECT, related_name='customers', blank=True, null=True, )
     sector = models.ForeignKey('Sector', on_delete=models.PROTECT, related_name='customers', verbose_name=_('Sector'))
     location = models.ForeignKey('Location', on_delete=models.PROTECT, related_name='customers',
                                  verbose_name=_('Sub Location'), null=True, blank=True)
     sub_location = models.ForeignKey('SubLocation', on_delete=models.PROTECT, related_name='customers',
-                                 verbose_name=_('Sub Location'), null=True, blank=True)
+                                     verbose_name=_('Sub Location'), null=True, blank=True)
     medical = models.ForeignKey('MedicalSector', on_delete=models.PROTECT, related_name='customers',
                                 verbose_name=_('Medical Sector'), null=True, blank=True)
     source = models.ForeignKey('Source', on_delete=models.PROTECT, related_name='customers', verbose_name=_('Source'))
@@ -144,6 +134,7 @@ class Customer(BaseModel):
     phone_number = models.CharField(max_length=20, verbose_name=_('Phone Number'))
     recall_date = models.DateTimeField(null=True, blank=True, verbose_name=_('Recall Date'))
     status_changed_at = models.DateTimeField(null=True, verbose_name=_('Status Changed at'))
+    coming_at = models.DateTimeField(null=True, blank=True, verbose_name=_('Coming at'))
 
     def save(self, *args, **kwargs):
         if self.status == CustomerStatus.IN_BASE:
@@ -159,6 +150,12 @@ class Customer(BaseModel):
         super().save(*args, **kwargs)
 
     @property
+    def color(self):
+        seller = self.user.sellers.filter(status='active').first()
+        color = seller.customer_views.first().color if seller and seller.customer_views.exists() else None
+        return color
+
+    @property
     def original_seller(self):
         first_customer = Customer.objects.filter(phone_number=self.phone_number).order_by('id').first()
 
@@ -172,6 +169,10 @@ class Customer(BaseModel):
             }
         return None
 
+    @property
+    def is_new_customer(self):
+        return (timezone.now() - self.created_at) < datetime.timedelta(days=2)
+
     class Meta:
         verbose_name = _("Customer")
         verbose_name_plural = _("Customers")
@@ -183,8 +184,10 @@ class Customer(BaseModel):
 class Source(BaseModel):
     name = models.CharField(max_length=255, verbose_name=_('Name'))
     status = models.BooleanField(default=False, verbose_name=_('Status'))
-    seller = models.ForeignKey("user.Seller", on_delete=models.SET_NULL, verbose_name=_('Seller'), null=True, blank=True)
-    user = models.ForeignKey('user.User', on_delete=models.PROTECT, related_name='sources', verbose_name=_('User'), null=True, blank=True)
+    seller = models.ForeignKey("user.Seller", on_delete=models.SET_NULL, verbose_name=_('Seller'), null=True,
+                               blank=True)
+    user = models.ForeignKey('user.User', on_delete=models.PROTECT, related_name='sources', verbose_name=_('User'),
+                             null=True, blank=True)
     image = models.ImageField(upload_to='source/', verbose_name=_('Image'), null=True, blank=True)
 
     @property
@@ -203,8 +206,10 @@ class Source(BaseModel):
 class Product(BaseModel):
     image = models.ImageField(upload_to='products/', verbose_name=_('Image'))
     name = models.CharField(max_length=255, verbose_name=_('Name'))
-    seller = models.ForeignKey("user.Seller", on_delete=models.SET_NULL, verbose_name=_('Seller'), null=True, blank=True)
-    user = models.ForeignKey('user.User', on_delete=models.PROTECT, related_name='products', verbose_name=_('User'), null=True, blank=True)
+    seller = models.ForeignKey("user.Seller", on_delete=models.SET_NULL, verbose_name=_('Seller'), null=True,
+                               blank=True)
+    user = models.ForeignKey('user.User', on_delete=models.PROTECT, related_name='products', verbose_name=_('User'),
+                             null=True, blank=True)
     status = models.BooleanField(default=True)
 
     class Meta:
@@ -227,12 +232,18 @@ class StatusChangeRequest(BaseModel):
         CUSTOMER = 'customer', 'Customer'
         COMMENT = 'comment', 'Comment'
         SOLD = 'sold', 'Sold'
+        MEDICAL_SECTOR = 'medical_sector', 'Medical Sector'
 
     type = models.CharField(max_length=20, choices=Types.choices, default=Types.COMMENT,
                             verbose_name=_('Type'))
     comment = models.ForeignKey("user.Comment", on_delete=models.PROTECT, related_name='status_change_requests_comment',
                                 verbose_name=_('Comment'), null=True,
                                 blank=True)
+    medical_Sector = models.ForeignKey(MedicalSector, on_delete=models.PROTECT, related_name='status_change_requests',
+                                       null=True, blank=True, )
+
+    medical_Sector_status = models.BooleanField(default=True, verbose_name=_('Medical Sector Status'), null=True, blank=True)
+
     customer = models.ForeignKey('Customer', on_delete=models.PROTECT, related_name='status_change_requests_customer',
                                  verbose_name=_('Customer'), null=True, blank=True)
     seller = models.ForeignKey('user.Seller', on_delete=models.PROTECT, related_name='status_change_requests_seller',
@@ -242,83 +253,89 @@ class StatusChangeRequest(BaseModel):
     new_status = models.CharField(max_length=20, choices=CustomerStatus.choices, verbose_name=_('New Status'),
                                   null=True, blank=True, )
     comment_status = models.BooleanField(default=None, null=True, blank=True)
+
     sold_status = models.BooleanField(null=True, blank=True, default=None)
+
     sale = models.OneToOneField('Sale', on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_('Sale'),
                                 related_name='status_change_request')
+
     text = models.CharField(max_length=255, verbose_name=_('Text'))
-    admin_response = models.CharField(max_length=255, verbose_name=_('Admin Response'))
+    admin_response = models.CharField(max_length=255, verbose_name=_('Admin Response'), null=True, blank=True)
     approved_at = models.DateTimeField(null=True, blank=True, verbose_name=_('Approved At'))
 
     def approve(self):
-        current_time = datetime.datetime.now()
+        self.status = self.Status.ACCEPTED
+        self.approved_at = timezone.now()
 
-        if self.type == self.Types.CUSTOMER:
-            if self.customer and self.new_status:
-                self.status = self.Status.ACCEPTED
-                self.approved_at = current_time
-                self.customer.status = self.new_status
-                self.customer.status_changed_at = timezone.now()
-                self.save()
-                self.customer.save()
+        type_approval_method = getattr(self, f'_approve_{self.type}', None)
+        if type_approval_method:
+            type_approval_method()
 
-                if self.new_status == 'active':
-                    copied_customers = Customer.objects.filter(phone_number=self.customer.phone_number).exclude(
-                        id=self.customer.id)
-                    self.customer.during_at = current_time
-                    self.customer.during_at += datetime.timedelta(days=90)
-                    self.customer.save()
-                    SellerCoin.objects.create(
-                        action='do_activation',
-                        seller=self.seller,
-                        coins=21
-                    )
-                    for customer in copied_customers:
-                        customer.status = CustomerStatus.ARCHIVED
-                        customer.status_changed_at = current_time
-                        customer.save()
-                if self.new_status == 'in_progress':
-                    self.customer.during_at = current_time
-                    self.customer.during_at += datetime.timedelta(days=60)
-                    self.customer.save()
+        self.save()
 
-                if self.new_status == 'in_base':
-                    self.customer.during_at = current_time
-                    self.customer.save()
+    def _approve_customer(self):
+        if self.customer and self.new_status:
+            self.customer.status = self.new_status
+            self.customer.status_changed_at = self.approved_at
+            self.customer.during_at = self._calculate_during_at()
 
-        elif self.type == self.Types.COMMENT:
-            if self.comment:
-                self.status = self.Status.ACCEPTED
-                self.approved_at = current_time
-                self.comment.status = self.comment_status
-                self.save()
-                self.comment.save()
+            if self.new_status == 'active':
+                self._archive_copied_customers()
+                SellerCoin.objects.create(action='do_activation', seller=self.seller, coins=21)
 
-        elif self.type == self.Types.SOLD:
-            self.status = self.Status.ACCEPTED
-            self.approved_at = current_time
-            self.sold_status = True
-            SellerCoin.objects.create(
-                action='sale',
-                seller=self.seller,
-                coins=50
-            )
-            self.save()
+            self.customer.save()
+
+    def _approve_comment(self):
+        if self.comment:
+            self.comment.status = self.comment_status
+            self.comment.save()
+
+    def _approve_sold(self):
+        self.sold_status = True
+        SellerCoin.objects.create(action='sale', seller=self.seller, coins=50)
+
+    def _approve_medical_sector(self):
+        if self.medical_Sector:
+            self.medical_Sector.status = self.medical_Sector_status
+            self.medical_Sector.save()
+
+    def _calculate_during_at(self):
+        duration_days = {'active': 90, 'in_progress': 60}.get(self.new_status, 0)
+        return timezone.now() + datetime.timedelta(days=duration_days)
+
+    def _archive_copied_customers(self):
+        Customer.objects.filter(phone_number=self.customer.phone_number).exclude(id=self.customer.id).update(
+            status=CustomerStatus.ARCHIVED, status_changed_at=self.approved_at
+        )
 
     def reject(self, response_text=None):
+        """Reject the status change request with an optional admin response."""
         self.status = self.Status.REJECTED
         self.admin_response = response_text
 
-        if self.type == self.Types.CUSTOMER:
-            if self.customer:
-                self.customer.status = self.new_status
-
-        elif self.type == self.Types.COMMENT and self.comment:
-            self.comment.status = self.comment_status
-
-        elif self.type == self.Types.SOLD:
-            self.sold_status = False
+        type_reject_method = getattr(self, f'_reject_{self.type}', None)
+        if type_reject_method:
+            type_reject_method()
 
         self.save()
+
+    def _reject_customer(self):
+        if self.customer:
+            self.customer.status = self.new_status
+            self.customer.save()
+
+    def _reject_comment(self):
+        if self.comment:
+            self.comment.status = self.comment_status
+            self.comment.save()
+
+    def _reject_sold(self):
+        self.sold_status = False
+
+    def _reject_medical_sector(self):
+        if self.medical_Sector:
+            self.medical_Sector.status = self.medical_Sector_status
+            self.medical_Sector.save()
 
     def __str__(self):
         return f"Request to change {self.customer.name if self.customer else 'N/A'}'s status to {self.new_status}"
@@ -331,7 +348,10 @@ class StatusChangeRequest(BaseModel):
 class Sale(models.Model):
     request = models.OneToOneField('StatusChangeRequest', on_delete=models.PROTECT, related_name='sale_request')
     product = models.ManyToManyField('Product', verbose_name=_('Product'))
-    sub_location = models.ForeignKey('SubLocation', on_delete=models.PROTECT, verbose_name=_('SubLocation'))
+    sub_location = models.ForeignKey('SubLocation', on_delete=models.PROTECT, verbose_name=_('SubLocation'), null=True, blank=True)
     seller = models.ForeignKey('user.Seller', on_delete=models.PROTECT, verbose_name=_('Seller'))
     sale_amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name=_('Sale Amount'))
     approved_at = models.DateTimeField(auto_now_add=True, verbose_name=_('Approved At'))
+    status = models.BooleanField(default=True, verbose_name=_('Status'))
+    latitude = models.FloatField(verbose_name=_('Latitude'), blank=True, null=True)
+    longitude = models.FloatField(verbose_name=_('Longitude'), blank=True, null=True)

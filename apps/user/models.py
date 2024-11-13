@@ -1,10 +1,13 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from ckeditor.fields import RichTextField
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.core.validators import RegexValidator
 from django.db import models
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -126,6 +129,7 @@ class Seller(BaseModel):
     status = models.CharField(max_length=15, choices=Status.choices, default=Status.ACTIVE)
     personal_phone = models.CharField(max_length=50, validators=[phone_validator])
     page_permissions = models.ManyToManyField('Page', related_name='page', verbose_name=_('Page Permissions'), )
+    score = models.BigIntegerField(default=0, verbose_name=_('Score'), null=True, blank=True)
 
     def __str__(self):
         return f"{self.id}-{self.user}-{self.full_name}"
@@ -166,14 +170,31 @@ class Comment(BaseModel):
 
 class Notifications(BaseModel):
     title = models.CharField(max_length=255, verbose_name=_('Title'), null=True, blank=True)
-    text = RichTextField()
+    text = models.CharField(max_length=255, verbose_name=_('Text'), null=True, blank=True)
     seller = models.ForeignKey('Seller', on_delete=models.CASCADE, related_name='notifications',
                                verbose_name=_('Seller'))
+    user = models.ForeignKey('User', on_delete=models.CASCADE, related_name='notifications', null=True, blank=True)
     is_read = models.BooleanField(default=False)
     link = models.CharField(max_length=255, null=True, blank=True, verbose_name=_('Link'))
 
     def __str__(self):
         return str(self.title)
+
+    def save(self, *args, **kwargs):
+        if not self.pk:
+            group_name = f"user_notification_{self.user.id if self.user else self.seller.id }"
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                group_name,
+                {
+                    'type': 'get_notification',
+                    'user_id': self.user.id,
+                    'notification': {
+                        'title': self.title,
+                    }
+                }
+            )
+        return super().save(*args, **kwargs)
 
 
 class SellerPageVisitDuration(BaseModel):
@@ -258,6 +279,18 @@ class SellerCustomerView(BaseModel):
     customer = models.ForeignKey('common.Customer', on_delete=models.CASCADE, related_name='seller_customers', )
     count = models.BigIntegerField(default=0, verbose_name=_('Count'))
     viewed_at = models.DateTimeField(default=datetime.now, verbose_name=_('View At'))
+
+    @property
+    def color(self):
+        now = timezone.now()
+        one_month_ago = now - timedelta(days=30)
+
+        if self.viewed_at >= one_month_ago:
+            return "green"
+        elif one_month_ago > self.viewed_at >= one_month_ago - timedelta(days=30):
+            return "yellow"
+        else:
+            return "white"
 
     def __str__(self):
         return f"{self.seller} - {self.customer} - {self.viewed_at}"

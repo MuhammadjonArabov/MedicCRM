@@ -79,7 +79,7 @@ class MedicalSectorListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = serializers.MedicalSectorListCreateSerializers
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ['location_id', 'sector_id']
+    filterset_fields = ['sector_id']
     search_fields = ['name']
 
     def get_queryset(self):

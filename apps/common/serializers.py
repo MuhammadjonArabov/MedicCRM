@@ -85,7 +85,7 @@ class LocationListCreateSerializers(serializers.ModelSerializer):
 class MedicalSectorListCreateSerializers(serializers.ModelSerializer):
     class Meta:
         model = MedicalSector
-        fields = ['id', 'name', 'inn_number', 'location', 'sector']
+        fields = ['id', 'name', 'inn_number', 'sector']
 
     def create(self, validated_data):
         user = self.context['request'].user
